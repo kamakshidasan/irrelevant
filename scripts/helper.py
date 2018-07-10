@@ -26,6 +26,7 @@ MAPPING_NODE_SUFFIX = '-mapping'
 BIRTH_NODE_SUFFIX = '-birth'
 DEATH_NODE_SUFFIX = '-death'
 CONTOUR_TREE_SUFFIX = '-contour'
+SPLIT_TREE_SUFFIX = '-split'
 
 TREE_TYPE_SPLIT = 'split'
 TREE_TYPE_CONTOUR = 'contour'
@@ -70,6 +71,7 @@ MAKE_STABLE_SCRIPT = 'make-stable.py'
 GENERATE_JT_FILES_SCRIPT = 'generate-jt-files.py'
 
 CONTOUR_MAKE_TREE_SCRIPT = 'contour-make-tree.py'
+SPLIT_MAKE_TREE_SCRIPT = 'split-make-tree.py'
 
 INFINITY = float('inf')
 

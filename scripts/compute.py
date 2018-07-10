@@ -10,7 +10,7 @@ startTime = datetime.now()
 
 # initialize Path variables
 # create a new 'Legacy VTK Reader'
-full_file_name = 'tv_0.vtk'
+full_file_name = 'tv_295.vtk'
 parent_path = cwd()
 data_path = get_input_path(parent_path)
 file_path = join_file_path(data_path, full_file_name)
@@ -76,7 +76,7 @@ renderView2.Update()
 # create a new 'Threshold'
 persistencePairsThreshold = Threshold(Input=persistenceDiagram)
 persistencePairsThreshold.Scalars = ['CELLS', 'PairType']
-persistencePairsThreshold.ThresholdRange = [-0.1, 1.0]
+persistencePairsThreshold.ThresholdRange = [-1, 1]
 
 # show data in view
 persistencePairsThresholdDisplay = Show(persistencePairsThreshold, renderView2)
@@ -366,4 +366,4 @@ SaveScreenshot(screen_file_path, magnification=1, quality=100, view=renderView1)
 
 print datetime.now() - startTime, 'Done! :)'
 
-#os._exit(0)
+os._exit(0)

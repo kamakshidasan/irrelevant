@@ -12,7 +12,7 @@ adjacency = {}
 pairs = {}
 
 index_map = {}
-inverse_index_map = {}
+order_map = {}
 
 birth = {}
 death = {}
@@ -35,16 +35,24 @@ def initialize_tree(index):
 	root.index = index
 	root.label = scalars[index]
 	root.pair = pairs[index]
+
+	# add mapping to dictionary
+	index_map[index] = root
+
 	return root
 
 def add_node(index, parent):
-	current = Tree()
-	current.index = index
-	parent.children.append(current)
-	current.parent = parent
-	current.label = scalars[index]
-	current.pair = pairs[index]
-	return current
+	node = Tree()
+	node.index = index
+	parent.children.append(node)
+	node.parent = parent
+	node.label = scalars[index]
+	node.pair = pairs[index]
+
+	# add mapping to dictionary
+	index_map[index] = node
+
+	return node
 
 
 def compare_nodes(a, b):
@@ -69,20 +77,34 @@ def traverse(index, parent):
 			current = add_node(node, parent)
 			traverse(node, current)
 
+def add_pairs(node):
+	if(node == None):
+		return
+	else:
+		node.birth = index_map[birth[node.index]]
+		node.death = index_map[death[node.index]]
+		for child in node.children:
+			add_pairs(child)
+
 def postorder(node):
 	global order
 	if(node == None):
 		return
 	else:
-		#node.birth = scalars[birth[node.value]]
-		#node.death = scalars[death[node.value]]
-
 		for child in node.children:
 			postorder(child)
 
 		node.order = order
-		print node.order, node.index, node.label, node.pair
+		order_map[order] = node
 		order += 1
+
+def print_tree(node):
+	if(node == None):
+		return
+	else:
+		for child in node.children:
+			print_tree(child)
+		print node.order, node.index, node.label, node.birth.label, node.death.label
 
 def get_merge_tree():
 	# Get merge tree path
@@ -136,14 +158,24 @@ def get_persistent_pairs():
 			#if (node1 in scalars.keys()) and (node2 in scalars.keys()):
 			# there will be pairs that do not exist in the merge tree
 			# they will be removed/ignored subsequently
+
 			pairs[node1] = node2
 			pairs[node2] = node1
+
+			# add birth and death values of nodes to dictionaries
+			birth[node1] = node1
+			death[node1] = node2
+
+			birth[node2] = node1
+			death[node2] = node2
 
 
 root = get_merge_tree()
 get_persistent_pairs()
 tree = initialize_tree(root)
 traverse(root, tree)
+add_pairs(tree)
 postorder(tree)
+print_tree(tree)
 
-save_dictionary(tree, file_name, CONTOUR_TREE_SUFFIX)
+save_dictionary(tree, file_name, SPLIT_TREE_SUFFIX)
