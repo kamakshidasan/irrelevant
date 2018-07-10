@@ -17,6 +17,8 @@ order_map = {}
 birth = {}
 death = {}
 
+string = ''
+
 class Tree(object):
 	def __init__(self):
 		self.index = None
@@ -101,13 +103,17 @@ def postorder(node):
 
 	set_order(node)
 
-def print_tree(node):
+
+def stringify_tree(node):
+	global string
 	if(node == None):
 		return
 	else:
+		string += '{'+ str(node.order)
 		for child in node.children:
-			print_tree(child)
-		print node.order, node.index, node.label, node.birth.label, node.death.label
+			stringify_tree(child)
+		string += '}'
+	return string
 
 def get_merge_tree():
 	# Get merge tree path
@@ -179,6 +185,6 @@ tree = initialize_tree(root)
 traverse(root, tree)
 add_pairs(tree)
 postorder(tree)
-print_tree(tree)
+print stringify_tree(tree)
 
 save_dictionary(tree, file_name, SPLIT_TREE_SUFFIX)
