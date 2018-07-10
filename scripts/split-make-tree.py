@@ -17,8 +17,6 @@ order_map = {}
 birth = {}
 death = {}
 
-order = 1
-
 class Tree(object):
 	def __init__(self):
 		self.index = None
@@ -87,16 +85,21 @@ def add_pairs(node):
 			add_pairs(child)
 
 def postorder(node):
-	global order
-	if(node == None):
-		return
-	else:
-		for child in node.children:
-			postorder(child)
+	# python needs a mutable object for updation
+	order = {'index': 1}
 
-		node.order = order
-		order_map[order] = node
-		order += 1
+	def set_order(node):
+		if(node == None):
+			return
+		else:
+			for child in node.children:
+				set_order(child)
+
+			node.order = order['index']
+			order_map[order['index']] = node
+			order['index'] += 1
+
+	set_order(node)
 
 def print_tree(node):
 	if(node == None):
