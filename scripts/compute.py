@@ -10,7 +10,7 @@ startTime = datetime.now()
 
 # initialize Path variables
 # create a new 'Legacy VTK Reader'
-full_file_name = 'tv_295.vtk'
+full_file_name = 'adhitya.vtk'
 parent_path = cwd()
 data_path = get_input_path(parent_path)
 file_path = join_file_path(data_path, full_file_name)

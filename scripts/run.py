@@ -18,7 +18,7 @@ file_list = sorted(file_list, key=sort_files)
 file_list.insert(0, 'adhitya.vtk')
 
 #num_files = len(file_list)
-num_files = 300
+num_files = 301
 
 for i in range(1, num_files+1):
 
