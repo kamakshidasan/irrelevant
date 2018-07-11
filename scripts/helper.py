@@ -27,6 +27,7 @@ BIRTH_NODE_SUFFIX = '-birth'
 DEATH_NODE_SUFFIX = '-death'
 CONTOUR_TREE_SUFFIX = '-contour'
 SPLIT_TREE_SUFFIX = '-split'
+STRING_SUFFIX = '-string'
 
 TREE_TYPE_SPLIT = 'split'
 TREE_TYPE_CONTOUR = 'contour'
@@ -59,6 +60,7 @@ MERGED_IMAGES_FOLDER = 'merged-images'
 DEBUG_FOLDER = 'debug'
 JT_FOLDER = 'jt'
 CLIQUE_GRAPHS_FOLDER = 'clique-graphs'
+STRINGS_FOLDER = 'strings'
 
 PYTHON_COMMAND = 'python'
 PARAVIEW_COMMAND = 'paraview'
@@ -321,3 +323,7 @@ def get_connectivity(index, parent, mapping):
 		return line
 	else:
 		return ''
+
+def save_string(string, file_path):
+	with open(file_path, "w") as string_file:
+		string_file.write(string)

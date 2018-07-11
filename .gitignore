@@ -15,6 +15,7 @@ pairs/
 persistence/
 results/
 screenshots/
+strings/
 trees/
 output/
 *.pyc

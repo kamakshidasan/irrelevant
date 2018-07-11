@@ -103,16 +103,23 @@ def postorder(node):
 
 	set_order(node)
 
-
 def stringify_tree(node):
 	global string
 	if(node == None):
 		return
 	else:
-		string += '{'+ str(node.order)
+		string += '{'
+		string += str(node.order) + '|'
+		string += str(node.index) + '|'
+		string += str(node.label) + '|'
+		string += str(node.birth.label) + '|'
+		string += str(node.death.label)
+
 		for child in node.children:
 			stringify_tree(child)
+
 		string += '}'
+
 	return string
 
 def get_merge_tree():
@@ -185,6 +192,8 @@ tree = initialize_tree(root)
 traverse(root, tree)
 add_pairs(tree)
 postorder(tree)
-print stringify_tree(tree)
+#print stringify_tree(tree)
 
-save_dictionary(tree, file_name, SPLIT_TREE_SUFFIX)
+string_file_arguments = [file_name, TXT_EXTENSION]
+string_file_path = get_output_path(file_path, string_file_arguments, folder_name = STRINGS_FOLDER)
+save_string(stringify_tree(tree), string_file_path)
