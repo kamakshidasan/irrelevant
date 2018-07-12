@@ -10,31 +10,40 @@ startTime = datetime.now()
 
 # initialize Path variables
 # create a new 'Legacy VTK Reader'
-full_file_name = 'adhitya.vtk'
+full_file_name = 'tv_13.vtk'
 parent_path = cwd()
 data_path = get_input_path(parent_path)
 file_path = join_file_path(data_path, full_file_name)
 file_name = get_file_name(full_file_name)
 
 # create a new 'Legacy VTK Reader'
-vtkFile = LegacyVTKReader(FileNames=[file_path])
+inputFile = LegacyVTKReader(FileNames=[file_path])
 simplification_percentage = 2
 
 # get active view
 renderView1 = GetActiveViewOrCreate('RenderView')
-vtkFileDisplay = Show(vtkFile, renderView1)
-vtkFileDisplay.Representation = 'Slice'
+inputFileDisplay = Show(inputFile, renderView1)
+inputFileDisplay.Representation = 'Slice'
 
 # reset view to fit data
 renderView1.ResetCamera()
 renderView1.InteractionMode = '2D'
 renderView1.CameraPosition = [199.5, 24.5, 10000.0]
 renderView1.CameraFocalPoint = [199.5, 24.5, 0.0]
-vtkFileDisplay.SetScalarBarVisibility(renderView1, False)
+inputFileDisplay.SetScalarBarVisibility(renderView1, False)
 renderView1.Update()
 
 # get color transfer function/color map for 'magnitude'
 magnitudeLUT = GetColorTransferFunction('magnitude')
+
+# create a new 'Extract Subset'
+vtkFile = ExtractSubset(Input=inputFile)
+vtkFile.VOI = [79, 399, 0, 49, 0, 0]
+vtkFileDisplay = Show(vtkFile, renderView1)
+vtkFileDisplay.Representation = 'Slice'
+vtkFileDisplay.SetScalarBarVisibility(renderView1, True)
+renderView1.Update()
+Hide(inputFile, renderView1)
 
 # get layout
 layout1 = GetLayout()
@@ -99,13 +108,10 @@ for index in range(num_persistent_cells):
 # filter all persistent pairs above minimum persistence threshold
 min_persistence = (simplification_percentage *  max_persistence) / 100.0
 
-simplified_persistence = 0.085 * max_persistence
-
 # create a new 'Threshold'
 persistenceThreshold = Threshold(Input=persistencePairsThreshold)
 persistenceThreshold.Scalars = ['CELLS', 'Persistence']
-persistenceThreshold.ThresholdRange = [min_persistence, simplified_persistence]
-#persistenceThreshold.ThresholdRange = [min_persistence, max_persistence]
+persistenceThreshold.ThresholdRange = [min_persistence, max_persistence]
 persistenceThresholdDisplay = Show(persistenceThreshold, renderView2)
 persistenceThresholdDisplay.Representation = 'Surface'
 Hide(persistencePairsThreshold, renderView2)
