@@ -17,24 +17,33 @@ file_path = join_file_path(data_path, full_file_name)
 file_name = get_file_name(full_file_name)
 
 # create a new 'Legacy VTK Reader'
-vtkFile = LegacyVTKReader(FileNames=[file_path])
+inputFile = LegacyVTKReader(FileNames=[file_path])
 simplification_percentage = 2
 
 # get active view
 renderView1 = GetActiveViewOrCreate('RenderView')
-vtkFileDisplay = Show(vtkFile, renderView1)
-vtkFileDisplay.Representation = 'Slice'
+inputFileDisplay = Show(inputFile, renderView1)
+inputFileDisplay.Representation = 'Slice'
 
 # reset view to fit data
 renderView1.ResetCamera()
 renderView1.InteractionMode = '2D'
 renderView1.CameraPosition = [199.5, 24.5, 10000.0]
 renderView1.CameraFocalPoint = [199.5, 24.5, 0.0]
-vtkFileDisplay.SetScalarBarVisibility(renderView1, False)
+inputFileDisplay.SetScalarBarVisibility(renderView1, False)
 renderView1.Update()
 
 # get color transfer function/color map for 'magnitude'
 magnitudeLUT = GetColorTransferFunction('magnitude')
+
+# create a new 'Extract Subset'
+vtkFile = ExtractSubset(Input=inputFile)
+vtkFile.VOI = [0, 399, 0, 49, 0, 0]
+vtkFileDisplay = Show(vtkFile, renderView1)
+vtkFileDisplay.Representation = 'Slice'
+vtkFileDisplay.SetScalarBarVisibility(renderView1, True)
+renderView1.Update()
+Hide(inputFile, renderView1)
 
 # get layout
 layout1 = GetLayout()
@@ -99,13 +108,10 @@ for index in range(num_persistent_cells):
 # filter all persistent pairs above minimum persistence threshold
 min_persistence = (simplification_percentage *  max_persistence) / 100.0
 
-simplified_persistence = 0.085 * max_persistence
-
 # create a new 'Threshold'
 persistenceThreshold = Threshold(Input=persistencePairsThreshold)
 persistenceThreshold.Scalars = ['CELLS', 'Persistence']
-persistenceThreshold.ThresholdRange = [min_persistence, simplified_persistence]
-#persistenceThreshold.ThresholdRange = [min_persistence, max_persistence]
+persistenceThreshold.ThresholdRange = [min_persistence, max_persistence]
 persistenceThresholdDisplay = Show(persistenceThreshold, renderView2)
 persistenceThresholdDisplay.Representation = 'Surface'
 Hide(persistencePairsThreshold, renderView2)
@@ -243,10 +249,10 @@ simplififedPersistenceDiagramDisplay = Show(simplififedPersistenceDiagram, rende
 simplififedPersistenceDiagramDisplay.Representation = 'Surface'
 
 
-
 # initialize dictionaries
 scalars = {}
 nodes = {}
+birth_pairs = {}
 
 with open(nodes_file_path, 'rb') as csvfile:
 	csvfile.readline()
@@ -313,6 +319,12 @@ for index in range(num_persistent_threshold_points):
 		death_vertex = vertex_id
 		content = [birth_vertex, death_vertex]
 		writer.writerow(content)
+
+		# add to pairs dictionary
+		# I store only one instance and not the death
+		if (birth_vertex in scalars.keys()) and (death_vertex in scalars.keys()):
+			birth_pairs[birth_vertex] = death_vertex
+
 	else:
 		birth_vertex = vertex_id
 
@@ -362,8 +374,40 @@ for index in range(num_persistent_threshold_points):
 
 pairs_file.close()
 
-## write persistent pairs to vtk file and then display it back
+# write persistent pairs to vtk file and then display back
+stability_file_arguments = [tree_type, PAIRS_INFIX, file_name, VTK_EXTENSION]
+stability_file_path = get_output_path(file_path, stability_file_arguments, folder_name = STABILITY_FOLDER)
+save_stability(scalars, birth_pairs, stability_file_path)
 
+SetActiveView(renderView1)
+
+# render statbility file
+Hide(tube, renderView1)
+stabilityFile = LegacyVTKReader(FileNames=[stability_file_path])
+stabilityFileDisplay = Show(stabilityFile, renderView1)
+stabilityFileDisplay.Representation = 'Surface'
+stabilityFileDisplay.SetScalarBarVisibility(renderView1, False)
+renderView1.Update()
+
+# get color transfer function/color map for 'Persistence'
+persistenceLUT = GetColorTransferFunction('Persistence')
+extractSurface2 = ExtractSurface(Input=stabilityFile)
+
+# show data in view
+extractSurface2Display = Show(extractSurface2, renderView1)
+extractSurface2Display.Representation = 'Surface'
+Hide(stabilityFile, renderView1)
+extractSurface2Display.SetScalarBarVisibility(renderView1, False)
+renderView1.Update()
+
+# create a new 'Tube'
+tube2 = Tube(Input=extractSurface2)
+tube2.Vectors = [None, '']
+tube2Display = Show(tube2, renderView1)
+tube2Display.Representation = 'Surface'
+Hide(extractSurface2, renderView1)
+tube2Display.SetScalarBarVisibility(renderView1, False)
+renderView1.Update()
 
 # take screenshot of scalar field
 screen_file_arguments = [tree_type, SCREENSHOT_INFIX, file_name, PNG_EXTENSION]
@@ -372,4 +416,4 @@ SaveScreenshot(screen_file_path, magnification=1, quality=100, view=renderView1)
 
 print datetime.now() - startTime, 'Done! :)'
 
-#os._exit(0)
+os._exit(0)

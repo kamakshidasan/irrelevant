@@ -8,6 +8,7 @@ VTP_EXTENSION = '.vtp'
 PNG_EXTENSION = '.png'
 DOT_EXTENSION = '.dot'
 JT_EXTENSION = '.jt'
+VTK_EXTENSION = '.vtk'
 
 PAIRS_INFIX = '-pairs-'
 TREE_INFIX = '-tree-'
@@ -61,6 +62,7 @@ DEBUG_FOLDER = 'debug'
 JT_FOLDER = 'jt'
 CLIQUE_GRAPHS_FOLDER = 'clique-graphs'
 STRINGS_FOLDER = 'strings'
+STABILITY_FOLDER = 'stability'
 
 PYTHON_COMMAND = 'python'
 PARAVIEW_COMMAND = 'paraview'
@@ -327,3 +329,89 @@ def get_connectivity(index, parent, mapping):
 def save_string(string, file_path):
 	with open(file_path, "w") as string_file:
 		string_file.write(string)
+
+class cfile(file):
+    #subclass file to have a more convienient use of writeline
+    def __init__(self, name, mode = 'r'):
+        self = file.__init__(self, name, mode)
+
+    def wl(self, string):
+        self.writelines(string + '\n')
+        return None
+
+# i remember writing countless System.out.println()
+# to output to a HTML file almost three years back
+def save_stability(scalars, birth_pairs, stability_file_path):
+	stability_file = cfile(stability_file_path, 'w')
+	coordinates = {}
+	cell_indices = {}
+	cell_index = 0
+	num_edges = len(birth_pairs.keys())
+	num_nodes = 2 * len(birth_pairs.keys())
+
+	stability_file.wl('# vtk DataFile Version 4.2')
+	stability_file.wl('persistence pairs')
+	stability_file.wl('ASCII')
+	stability_file.wl('DATASET UNSTRUCTURED_GRID')
+	stability_file.wl('POINTS ' + str(num_nodes) + ' float')
+
+	for vertex in birth_pairs.keys():
+		for vertex_index in [vertex, birth_pairs[vertex]]:
+			z = 0
+			y = vertex_index/400
+			x = vertex_index - (400 * y)
+			coordinates[vertex_index] = [x, y, z]
+			cell_indices[vertex_index] = cell_index
+			cell_index += 1
+			stability_file.wl(" ".join(map(str, coordinates[vertex_index])))
+
+	stability_file.wl('')
+
+	stability_file.wl('CELLS ' + str(num_edges) + ' ' + str(3 * num_edges))
+	for birth_vertex in birth_pairs.keys():
+		death_vertex = birth_pairs[birth_vertex]
+		cell_data = [2, cell_indices[birth_vertex], cell_indices[death_vertex]]
+		stability_file.wl(" ".join(map(str, cell_data)))
+
+	stability_file.wl('')
+
+	stability_file.wl('CELL_TYPES ' + str(num_edges))
+	for edge_type in range(0, num_edges):
+		stability_file.wl('3')
+
+	stability_file.wl('')
+
+	stability_file.wl('CELL_DATA ' + str(num_edges))
+	stability_file.wl('SCALARS Persistence float')
+	stability_file.wl('LOOKUP_TABLE default')
+	for birth_vertex in birth_pairs.keys():
+		death_vertex = birth_pairs[birth_vertex]
+		stability_file.wl(str(scalars[death_vertex] - scalars[birth_vertex]))
+	stability_file.wl('')
+
+	stability_file.wl('FIELD FieldData 2')
+	stability_file.wl('birth_vertex 1 ' + str(num_edges) + ' int')
+	for birth_vertex in birth_pairs.keys():
+		stability_file.wl(str(birth_vertex))
+	stability_file.wl('')
+
+	stability_file.wl('death_vertex 1 '+ str(num_edges) + ' int')
+	for birth_vertex in birth_pairs.keys():
+		stability_file.wl(str(birth_pairs[birth_vertex]))
+	stability_file.wl('')
+
+	stability_file.wl('POINT_DATA ' +  str(num_nodes))
+	stability_file.wl('FIELD FieldData 2')
+	stability_file.wl('Scalar 1 ' + str(num_nodes) + ' float')
+	for vertex in birth_pairs.keys():
+		for vertex_index in [vertex, birth_pairs[vertex]]:
+				stability_file.wl(str(scalars[vertex_index]))
+
+	stability_file.wl('')
+
+	stability_file.wl('VertexIndex 1 ' + str(num_nodes) + ' int')
+	for vertex in birth_pairs.keys():
+		for vertex_index in [vertex, birth_pairs[vertex]]:
+				stability_file.wl(str(vertex_index))
+	stability_file.wl('')
+	stability_file.close()
