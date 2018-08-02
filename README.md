@@ -17,7 +17,7 @@ This repository provides code to automate tasks in TTK:
 
 To run the code:
 
-- Place your data within the folder titled 'input'
-- For details on other folder you may want to create, look into helper.py and compute.py
+- Place your data within a folder titled 'input'
+- For details on other folders you may want to create, look into `helper.py` and `compute.py`
 - Then execute, `python run.py`
 - To run TTK parallelly, execute `python test.py <number of files> <number of cores>`
