@@ -14,6 +14,7 @@ This repository provides code to automate tasks in TTK:
 - Display critical points
 - Compute Merge Trees
 - Compute bottleneck/wasserstein distances
+- Segmentation based on Merge/Contour Trees
 
 To run the code:
 
