@@ -415,3 +415,12 @@ def save_stability(scalars, birth_pairs, stability_file_path):
 				stability_file.wl(str(vertex_index))
 	stability_file.wl('')
 	stability_file.close()
+
+def calculate_isoband_index(scalar, lower, upper):
+	if (scalar <= lower):
+		return '0'
+	else:
+		if scalar >= upper:
+			return '2'
+		else:
+			return '1'
