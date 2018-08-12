@@ -540,13 +540,14 @@ for point_index in xrange(numPoints):
 
 # process the link
 triangulationData = servermanager.Fetch(triangulationRequest)
-numTriangulationPoints = triangulationData.GetNumberOfPoints()
-for index in xrange(1, numTriangulationPoints):
+numTriangulationCells = triangulationData.GetNumberOfCells()
+for index in xrange(numTriangulationCells):
+	# process all the cells in the link
+	current_cell = triangulationData.GetCell(index)
 
-	# each triangle is connected as simplex - previous - current
-	# NO, it is not connected so!! Instead of using points, use the cells instead
-	previous_point = triangulationData.GetPoint(index-1)
-	current_point = triangulationData.GetPoint(index)
+	# each cell triangle is connected as simplex - first - second
+	previous_point = current_cell.GetPoints().GetPoint(0)
+	current_point = current_cell.GetPoints().GetPoint(1)
 
 	# get the identifiers of each cell in the link
 	simplex_point_identifier = triangulationRequest.Simplexidentifier
@@ -561,8 +562,29 @@ for index in xrange(1, numTriangulationPoints):
 	previous_scalar = point_scalars[previous_point_identifier]
 	current_scalar = point_scalars[current_point_identifier]
 
-	# add the vertex of the other connected component here
+	# process the vertices between the critical points connected with this simplex
+	lower_scalar_bound = point_scalars[simplex_point_identifier]
 
-	print cell_indices[cell_points], simplex_scalar, previous_scalar, current_scalar
+	# get the other critical points connected with this point
+	# ***** Adhitya: check if this list is empty
+	critical_points = arcs[simplex_point_identifier]
+
+	# make a loop over here
+	upper_scalar_bound = point_scalars[critical_points[0]]
+
+	#print 'lower_scalar_bound', lower_scalar_bound
+	#print 'higher_scalar_bound', upper_scalar_bound
+
+	first = calculate_isoband_index(simplex_scalar, lower_scalar_bound, upper_scalar_bound)
+	second = calculate_isoband_index(previous_scalar, lower_scalar_bound, upper_scalar_bound)
+	third = calculate_isoband_index(current_scalar, lower_scalar_bound, upper_scalar_bound)
+
+	isoband = first + second + third
+	if not (isoband == '000' or isoband == '222'):
+		print 'The face', cell_indices[cell_points], 'is part of the segmentation'
+	else:
+		print 'The face', cell_indices[cell_points], 'is not part of the segmentation'
+
+	#print simplex_scalar, previous_scalar, current_scalar, first + second + third
 
 #os._exit(0)
