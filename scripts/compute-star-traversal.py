@@ -12,7 +12,7 @@ startTime = datetime.now()
 
 # initialize Path variables
 # create a new 'Legacy VTK Reader'
-full_file_name = 'tv_90.vtk'
+full_file_name = 'tv_1.vtk'
 parent_path = cwd()
 data_path = get_input_path(parent_path)
 file_path = join_file_path(data_path, full_file_name)
@@ -200,6 +200,7 @@ segmentationThreshold2.ThresholdRange = [1, 1]
 segmentationThresholdDisplay2 = Show(segmentationThreshold2, renderView1)
 segmentationThresholdDisplay2.Representation = 'Surface'
 #Hide(vtkFile, renderView1)
+Hide(segmentationThreshold2, renderView1)
 renderView1.Update()
 
 
@@ -326,6 +327,18 @@ simplififedPersistenceDiagram = TTKPersistenceDiagram(Input=topologicalSimplific
 simplififedPersistenceDiagramDisplay = Show(simplififedPersistenceDiagram, renderView2)
 simplififedPersistenceDiagramDisplay.Representation = 'Surface'
 
+SetActiveView(renderView1)
+Hide(tTKSphereFromPointThreshold, renderView1)
+Hide(tube, renderView1)
+
+SetActiveSource(topologicalSimplification)
+triangulationRequest = TTKTriangulationRequest(Input=topologicalSimplification)
+triangulationRequest.Simplexidentifier = 281569
+triangulationRequest.Requesttype = 'Link'
+triangulationRequestDisplay = Show(triangulationRequest, renderView1)
+triangulationRequestDisplay.Representation = 'Surface'
+Hide(topologicalSimplification, renderView1)
+renderView1.Update()
 
 # initialize dictionaries
 scalars = {}
@@ -367,7 +380,7 @@ with open(arcs_file_path, 'rb') as csvfile:
 		up_vertex_index = nodes[upNodeId]
 		down_vertex_index = nodes[downNodeId]
 
-		print up_vertex_index, down_vertex_index
+		#print up_vertex_index, down_vertex_index
 
 		# store arcs in a dictionary
 		arcs[up_vertex_index].append(down_vertex_index)
@@ -467,39 +480,20 @@ SaveScreenshot(screen_file_path, magnification=1, quality=100, view=renderView1)
 
 print datetime.now() - startTime, 'Done! :)'
 
-# fetch the list of vertices and cells from the Domain
-# use them for hashing
-simplificationData = servermanager.Fetch(topologicalSimplification)
-numTriangles = simplificationData.GetNumberOfCells()
 
-cell_indices = {}
-point_coordinates = {}
-
-for i in xrange(numTriangles):
-  cell = simplificationData.GetCell(i)
-  point1 = cell.GetPointId(0)
-  point2 = cell.GetPointId(1)
-  point3 = cell.GetPointId(2)
-
-  coordinate1 = simplificationData.GetPoint(point1)
-  coordinate2 = simplificationData.GetPoint(point2)
-  coordinate3 = simplificationData.GetPoint(point3)
-
-  cell_indices[i] = Set([point1, point2, point3])
-  point_coordinates[point1] = coordinate1
-  point_coordinates[point2] = coordinate2
-  point_coordinates[point3] = coordinate3
-
-  #print cell_indices[i]
+# Start marching! :)
 
 # simulation of simplices for nodes in the tree
 sorted_nodes = list(reversed([v[0] for v in sorted(scalars.iteritems(), key=lambda(k, v): (-v, -k))]))
 
+# sort the nodes associated with each arc node
+# the sorting is based on simulation of simplices
 for node in sorted_nodes:
 	arcs[node] = list(reversed(sorted(arcs[node], key= lambda x: -sorted_nodes.index(x))))
 	#print node, arcs[node]
 
 # retain only super-arcs
+# only retain the nodes that are indiced higher in the above ordering
 for node in sorted_nodes:
 	arcs[node][:] = [arc_node for arc_node in arcs[node] if sorted_nodes.index(arc_node) > sorted_nodes.index(node)]
 
@@ -507,5 +501,68 @@ for node in sorted_nodes:
 	if arcs[node]:
 		print node, arcs[node]
 
+# fetch the list of vertices and cells from the Domain
+# use them for hashing
+simplificationData = servermanager.Fetch(topologicalSimplification)
+numTriangles = simplificationData.GetNumberOfCells()
+numPoints = simplificationData.GetNumberOfPoints()
+
+cell_indices = {}
+point_coordinates = {}
+point_scalars = {}
+
+for cell_index in xrange(numTriangles):
+	# process every cell and get the identifiers of each point
+	cell = simplificationData.GetCell(cell_index)
+	point1 = cell.GetPointId(0)
+	point2 = cell.GetPointId(1)
+	point3 = cell.GetPointId(2)
+
+	# get the coordinates of each point of the cell
+	coordinate1 = simplificationData.GetPoint(point1)
+	coordinate2 = simplificationData.GetPoint(point2)
+	coordinate3 = simplificationData.GetPoint(point3)
+
+	# hash the cell points together for comparison later
+	cell_points = frozenset([point1, point2, point3])
+	cell_indices[cell_points] = cell_index
+
+	# hash the coordinates to PointID
+	point_coordinates[coordinate1] = point1
+	point_coordinates[coordinate2] = point2
+	point_coordinates[coordinate3] = point3
+
+# similarly iterate over all points in the surface and store their scalar values
+for point_index in xrange(numPoints):
+	point_scalar = simplificationData.GetPointData().GetArray('magnitude').GetValue(point_index)
+	point_scalars[point_index] = point_scalar
+
+
+# process the link
+triangulationData = servermanager.Fetch(triangulationRequest)
+numTriangulationPoints = triangulationData.GetNumberOfPoints()
+for index in xrange(1, numTriangulationPoints):
+
+	# each triangle is connected as simplex - previous - current
+	# NO, it is not connected so!! Instead of using points, use the cells instead
+	previous_point = triangulationData.GetPoint(index-1)
+	current_point = triangulationData.GetPoint(index)
+
+	# get the identifiers of each cell in the link
+	simplex_point_identifier = triangulationRequest.Simplexidentifier
+	previous_point_identifier = point_coordinates[previous_point]
+	current_point_identifier = point_coordinates[current_point]
+
+	# map all the indices to a cell
+	cell_points = frozenset([simplex_point_identifier, previous_point_identifier, current_point_identifier])
+
+	# find the scalar values for each point of the cell
+	simplex_scalar = point_scalars[simplex_point_identifier]
+	previous_scalar = point_scalars[previous_point_identifier]
+	current_scalar = point_scalars[current_point_identifier]
+
+	# add the vertex of the other connected component here
+
+	print cell_indices[cell_points], simplex_scalar, previous_scalar, current_scalar
 
 #os._exit(0)
