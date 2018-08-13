@@ -12,7 +12,7 @@ startTime = datetime.now()
 
 # initialize Path variables
 # create a new 'Legacy VTK Reader'
-full_file_name = 'tv_1.vtk'
+full_file_name = 'tv_100.vtk'
 parent_path = cwd()
 data_path = get_input_path(parent_path)
 file_path = join_file_path(data_path, full_file_name)
@@ -564,16 +564,16 @@ for index in xrange(numTriangulationCells):
 	current_scalar = point_scalars[current_point_identifier]
 
 	# process the vertices between the critical points connected with this simplex
-	#lower_scalar_bound = point_scalars[290413]
-	lower_scalar_bound = point_scalars[simplex_point_identifier]
+	lower_scalar_bound = point_scalars[290413]
+	#lower_scalar_bound = point_scalars[simplex_point_identifier]
 
 	# get the other critical points connected with this point
 	# ***** Adhitya: check if this list is empty
-	critical_points = arcs[simplex_point_identifier]
+	#critical_points = arcs[simplex_point_identifier]
 
 	# make a loop over here
-	#upper_scalar_bound = point_scalars[1219484]
-	upper_scalar_bound = point_scalars[critical_points[0]]
+	upper_scalar_bound = point_scalars[1219484]
+	#upper_scalar_bound = point_scalars[critical_points[0]]
 
 	#print 'lower_scalar_bound', lower_scalar_bound
 	#print 'higher_scalar_bound', upper_scalar_bound
@@ -586,7 +586,7 @@ for index in xrange(numTriangulationCells):
 
 	# in addition to the normal isoband we have few special ones in case equality
 	# the following cases will not have an isovalue in-between
-	# indices are as [<lower, =lower, <lower, upper>, = upper, >upper]
+	# indices are as [<lower, =lower, <lower, upper>, =upper, >upper]
 	# which are translated as [0, 1, 2, 3, 4] respectively
 	#
 	# 0 - 1, 1 - 0, 1 - 1, 3 - 3, 3 - 4 are not possible now
@@ -603,5 +603,26 @@ for index in xrange(numTriangulationCells):
 		print 'The face', cell_indices[cell_points], 'is part of the segmentation', isoband
 
 	#print simplex_scalar, previous_scalar, current_scalar, first + second + third
+
+
+for simplexID in range(1209473, 1209473 + 5):
+	triangulationRequest.Simplexidentifier = simplexID
+	renderView1.Update()
+	triangulationData = servermanager.Fetch(triangulationRequest)
+	numTriangulationCells = triangulationData.GetNumberOfCells()
+	for index in xrange(numTriangulationCells):
+		# process all the cells in the link
+		current_cell = triangulationData.GetCell(index)
+
+		previous_point = current_cell.GetPoints().GetPoint(0)
+		current_point = current_cell.GetPoints().GetPoint(1)
+
+		previous_point_identifier = point_coordinates[previous_point]
+		current_point_identifier = point_coordinates[current_point]
+
+		identifiers = [simplexID, ': ', previous_point_identifier, ', ', current_point_identifier]
+
+		print ''.join(map(str, identifiers))
+	print ''
 
 #os._exit(0)
