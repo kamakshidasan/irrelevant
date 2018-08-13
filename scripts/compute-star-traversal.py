@@ -56,7 +56,7 @@ renderView1.Update()
 
 # create a new 'Loop Subdivision'
 loopSubdivision1 = LoopSubdivision(Input=triangulate1)
-loopSubdivision1.NumberofSubdivisions = 2
+loopSubdivision1.NumberofSubdivisions = 3
 loopSubdivision1Display = Show(loopSubdivision1, renderView1)
 loopSubdivision1Display.Representation = 'Surface'
 Hide(triangulate1, renderView1)
@@ -333,7 +333,8 @@ Hide(tube, renderView1)
 
 SetActiveSource(topologicalSimplification)
 triangulationRequest = TTKTriangulationRequest(Input=topologicalSimplification)
-triangulationRequest.Simplexidentifier = 281569
+triangulationRequest.Simplex = 'Vertex'
+triangulationRequest.Simplexidentifier = 1209472
 triangulationRequest.Requesttype = 'Link'
 triangulationRequestDisplay = Show(triangulationRequest, renderView1)
 triangulationRequestDisplay.Representation = 'Surface'
@@ -563,6 +564,7 @@ for index in xrange(numTriangulationCells):
 	current_scalar = point_scalars[current_point_identifier]
 
 	# process the vertices between the critical points connected with this simplex
+	#lower_scalar_bound = point_scalars[290413]
 	lower_scalar_bound = point_scalars[simplex_point_identifier]
 
 	# get the other critical points connected with this point
@@ -570,6 +572,7 @@ for index in xrange(numTriangulationCells):
 	critical_points = arcs[simplex_point_identifier]
 
 	# make a loop over here
+	#upper_scalar_bound = point_scalars[1219484]
 	upper_scalar_bound = point_scalars[critical_points[0]]
 
 	#print 'lower_scalar_bound', lower_scalar_bound
@@ -580,10 +583,24 @@ for index in xrange(numTriangulationCells):
 	third = calculate_isoband_index(current_scalar, lower_scalar_bound, upper_scalar_bound)
 
 	isoband = first + second + third
-	if not (isoband == '000' or isoband == '222'):
-		print 'The face', cell_indices[cell_points], 'is part of the segmentation'
+
+	# in addition to the normal isoband we have few special ones in case equality
+	# the following cases will not have an isovalue in-between
+	# indices are as [<lower, =lower, <lower, upper>, = upper, >upper]
+	# which are translated as [0, 1, 2, 3, 4] respectively
+	#
+	# 0 - 1, 1 - 0, 1 - 1, 3 - 3, 3 - 4 are not possible now
+	# 0 - 0, 4 - 4 were not possible even without equality check
+
+	lower_intolerable_indices = ['000', '001', '010', '011', '100', '101', '110', '111']
+	upper_intolerable_indices = ['333', '334', '343', '344', '433', '434', '443', '444']
+
+	if ((isoband in lower_intolerable_indices) or (isoband in upper_intolerable_indices)):
+		print simplex_scalar, previous_scalar, current_scalar
+		print 'The face', cell_indices[cell_points], 'is not part of the segmentation', isoband
 	else:
-		print 'The face', cell_indices[cell_points], 'is not part of the segmentation'
+		print simplex_scalar, previous_scalar, current_scalar
+		print 'The face', cell_indices[cell_points], 'is part of the segmentation', isoband
 
 	#print simplex_scalar, previous_scalar, current_scalar, first + second + third
 

@@ -1,4 +1,5 @@
 import os, re, shutil, pickle, inspect, csv, sys, math
+import numpy as np
 
 # List of constants
 CSV_EXTENSION = '.csv'
@@ -416,11 +417,18 @@ def save_stability(scalars, birth_pairs, stability_file_path):
 	stability_file.wl('')
 	stability_file.close()
 
+
+# indices are as [<lower, =lower, <lower, upper>, = upper, >upper]
 def calculate_isoband_index(scalar, lower, upper):
-	if (scalar <= lower):
+	if (scalar < lower):
 		return '0'
+	# check for equality with lower
+	elif(abs(scalar-lower) < 1e-8):
+		return '1'
+	elif (scalar > upper):
+		return '4'
+	# check for equality with upper
+	elif(abs(upper-scalar) < 1e-8):
+		return '3'
 	else:
-		if scalar >= upper:
-			return '2'
-		else:
-			return '1'
+		return '2'
