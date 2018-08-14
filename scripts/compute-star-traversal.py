@@ -12,7 +12,7 @@ startTime = datetime.now()
 
 # initialize Path variables
 # create a new 'Legacy VTK Reader'
-full_file_name = 'tv_100.vtk'
+full_file_name = 'tv_1.vtk'
 parent_path = cwd()
 data_path = get_input_path(parent_path)
 file_path = join_file_path(data_path, full_file_name)
@@ -91,14 +91,6 @@ renderView2.ViewSize = [1038, 1179]
 renderView2.AxesGrid = 'GridAxes3DActor'
 renderView2.StereoType = 0
 renderView2.Background = [0.32, 0.34, 0.43]
-
-# init the 'GridAxes3DActor' selected for 'AxesGrid'
-renderView2.AxesGrid.XTitleFontFile = ''
-renderView2.AxesGrid.YTitleFontFile = ''
-renderView2.AxesGrid.ZTitleFontFile = ''
-renderView2.AxesGrid.XLabelFontFile = ''
-renderView2.AxesGrid.YLabelFontFile = ''
-renderView2.AxesGrid.ZLabelFontFile = ''
 
 # place view in the layout
 layout1.AssignView(2, renderView2)
@@ -202,22 +194,6 @@ segmentationThresholdDisplay2.Representation = 'Surface'
 #Hide(vtkFile, renderView1)
 Hide(segmentationThreshold2, renderView1)
 renderView1.Update()
-
-
-# trying something new here
-#a = [None]
-#b = [None]
-#a[0] = Threshold(Input=OutputPort(contourTree, 2))
-#a[0].Scalars = ['POINTS', 'RegionType']
-#a[0].ThresholdRange = [2, 2]
-#b[0] = Show(a[0], renderView1)
-#b[0].Representation = 'Surface'
-#Hide(vtkFile, renderView1)
-#renderView1.Update()
-
-#********** have extract cells ************
-# 1) find the coordinates of the split/split-join nodes of the contour tree
-# 2) find a way to have an array of filters in paraview
 
 # get type for usage below
 tree_type = get_tree_type(contourTree.TreeType)
@@ -381,8 +357,6 @@ with open(arcs_file_path, 'rb') as csvfile:
 		up_vertex_index = nodes[upNodeId]
 		down_vertex_index = nodes[downNodeId]
 
-		#print up_vertex_index, down_vertex_index
-
 		# store arcs in a dictionary
 		arcs[up_vertex_index].append(down_vertex_index)
 		arcs[down_vertex_index].append(up_vertex_index)
@@ -479,8 +453,6 @@ screen_file_arguments = [tree_type, SCREENSHOT_INFIX, file_name, PNG_EXTENSION]
 screen_file_path = get_output_path(file_path, screen_file_arguments, folder_name = SCREENSHOT_FOLDER)
 SaveScreenshot(screen_file_path, magnification=1, quality=100, view=renderView1)
 
-print datetime.now() - startTime, 'Done! :)'
-
 
 # Start marching! :)
 
@@ -491,16 +463,20 @@ sorted_nodes = list(reversed([v[0] for v in sorted(scalars.iteritems(), key=lamb
 # the sorting is based on simulation of simplices
 for node in sorted_nodes:
 	arcs[node] = list(reversed(sorted(arcs[node], key= lambda x: -sorted_nodes.index(x))))
-	#print node, arcs[node]
 
-# retain only super-arcs
-# only retain the nodes that are indiced higher in the above ordering
+# retain only sub-arcs of the merge tree
+# only retain the nodes that are indiced lower in the above ordering
+# since we are working with the merge tree
+# we should end up with each critical point in the tree except the global minima
+# having a single sub-arc corresponding to a unique segment in the domain
 for node in sorted_nodes:
-	arcs[node][:] = [arc_node for arc_node in arcs[node] if sorted_nodes.index(arc_node) > sorted_nodes.index(node)]
+	arcs[node][:] = [arc_node for arc_node in arcs[node] if sorted_nodes.index(arc_node) < sorted_nodes.index(node)]
 
-for node in sorted_nodes:
-	if arcs[node]:
-		print node, arcs[node]
+# just for satisfaction
+#print 'final arcs'
+#for node in sorted_nodes:
+#	if arcs[node]:
+#		print node, arcs[node]
 
 # fetch the list of vertices and cells from the Domain
 # use them for hashing
@@ -508,16 +484,24 @@ simplificationData = servermanager.Fetch(topologicalSimplification)
 numTriangles = simplificationData.GetNumberOfCells()
 numPoints = simplificationData.GetNumberOfPoints()
 
-cell_indices = {}
-point_coordinates = {}
+coordinates_to_point = {}
 point_scalars = {}
 
-for cell_index in xrange(numTriangles):
+# this is probably the most weirdest naming scheme I have ever used :P
+triangle_index_to_points = defaultdict(list)
+point_index_to_link_triangles = defaultdict(list)
+triangle_points_to_triangle_index = {}
+
+for triangle_index in xrange(numTriangles):
 	# process every cell and get the identifiers of each point
-	cell = simplificationData.GetCell(cell_index)
+	cell = simplificationData.GetCell(triangle_index)
 	point1 = cell.GetPointId(0)
 	point2 = cell.GetPointId(1)
 	point3 = cell.GetPointId(2)
+
+	point_index_to_link_triangles[point1].append(triangle_index)
+	point_index_to_link_triangles[point2].append(triangle_index)
+	point_index_to_link_triangles[point3].append(triangle_index)
 
 	# get the coordinates of each point of the cell
 	coordinate1 = simplificationData.GetPoint(point1)
@@ -526,12 +510,14 @@ for cell_index in xrange(numTriangles):
 
 	# hash the cell points together for comparison later
 	cell_points = frozenset([point1, point2, point3])
-	cell_indices[cell_points] = cell_index
+	triangle_points_to_triangle_index[cell_points] = triangle_index
+
+	triangle_index_to_points[triangle_index] = cell_points
 
 	# hash the coordinates to PointID
-	point_coordinates[coordinate1] = point1
-	point_coordinates[coordinate2] = point2
-	point_coordinates[coordinate3] = point3
+	coordinates_to_point[coordinate1] = point1
+	coordinates_to_point[coordinate2] = point2
+	coordinates_to_point[coordinate3] = point3
 
 # similarly iterate over all points in the surface and store their scalar values
 for point_index in xrange(numPoints):
@@ -539,90 +525,68 @@ for point_index in xrange(numPoints):
 	point_scalars[point_index] = point_scalar
 
 
-# process the link
-triangulationData = servermanager.Fetch(triangulationRequest)
-numTriangulationCells = triangulationData.GetNumberOfCells()
-for index in xrange(numTriangulationCells):
-	# process all the cells in the link
-	current_cell = triangulationData.GetCell(index)
+segmented_triangle_regions = defaultdict(list)
 
-	# each cell triangle is connected as simplex - first - second
-	previous_point = current_cell.GetPoints().GetPoint(0)
-	current_point = current_cell.GetPoints().GetPoint(1)
+# point: segment
+processed_points = {}
+# triangle: segment
+processed_triangles = {}
 
-	# get the identifiers of each cell in the link
-	simplex_point_identifier = triangulationRequest.Simplexidentifier
-	previous_point_identifier = point_coordinates[previous_point]
-	current_point_identifier = point_coordinates[current_point]
+# need to have a loop over the nodes here
+for current_critical in sorted_nodes:
+    # the arcs are already sorted
+    # next_critical refers to the next lower critical point in the merge tree
+    for next_critical in arcs[current_critical]:
+        # find the lower and upper bounds of the current isoband
+        lower_scalar_bound = point_scalars[next_critical]
+        upper_scalar_bound = point_scalars[current_critical]
 
-	# map all the indices to a cell
-	cell_points = frozenset([simplex_point_identifier, previous_point_identifier, current_point_identifier])
+    	#print current_critical, next_critical, upper_scalar_bound, lower_scalar_bound
 
-	# find the scalar values for each point of the cell
-	simplex_scalar = point_scalars[simplex_point_identifier]
-	previous_scalar = point_scalars[previous_point_identifier]
-	current_scalar = point_scalars[current_point_identifier]
+        # add the current critical point to the processing list
+        current_processing_points = [current_critical]
 
-	# process the vertices between the critical points connected with this simplex
-	lower_scalar_bound = point_scalars[290413]
-	#lower_scalar_bound = point_scalars[simplex_point_identifier]
+        # process all points between current_critical and next_critical
+        while (len(current_processing_points) > 0):
+            # process the first element of the processing list
+            simplex_point_identifier = current_processing_points.pop(0)
 
-	# get the other critical points connected with this point
-	# ***** Adhitya: check if this list is empty
-	#critical_points = arcs[simplex_point_identifier]
+            # mark point as being processed
+            processed_points[simplex_point_identifier] = current_critical
 
-	# make a loop over here
-	upper_scalar_bound = point_scalars[1219484]
-	#upper_scalar_bound = point_scalars[critical_points[0]]
+            # get all triangles in the the link of the simplex
+            simplex_link_triangles = point_index_to_link_triangles[simplex_point_identifier]
 
-	#print 'lower_scalar_bound', lower_scalar_bound
-	#print 'higher_scalar_bound', upper_scalar_bound
+            # iterate across each triangle
+            for simplex_link_triangle in simplex_link_triangles:
+                # make sure triangle has not been processed earlier
+                if simplex_link_triangle not in processed_triangles:
+                    isoband_value = ''
+                    # get all points in the triangle
+                    point_identifiers = triangle_index_to_points[simplex_link_triangle]
+                    # iterate across each point in the triangle
+                    # using the scalar of each point find the isoband value
+                    for point_index in point_identifiers:
+                        simplex_scalar = point_scalars[point_index]
+                        isoband_value += calculate_cheap_isoband_index(simplex_scalar, lower_scalar_bound, upper_scalar_bound)
 
-	first = calculate_isoband_index(simplex_scalar, lower_scalar_bound, upper_scalar_bound)
-	second = calculate_isoband_index(previous_scalar, lower_scalar_bound, upper_scalar_bound)
-	third = calculate_isoband_index(current_scalar, lower_scalar_bound, upper_scalar_bound)
+					#if ((isoband_value in lower_intolerable_indices) or (isoband_value in upper_intolerable_indices)):
+                    # check if the triangle has an isoband passing through it
+                    if ((isoband_value in cheap_intolerable_indices)):
+					    isoband = False
+                    else:
+                        processed_triangles[simplex_link_triangle] = current_critical
+                        segmented_triangle_regions[current_critical].append(simplex_link_triangle)
 
-	isoband = first + second + third
+                        # since the triangle has an isoband passing through it
+                        for point_index in point_identifiers:
+                            if point_index not in processed_points:
+                                current_processing_points.append(point_index)
+		# unnecessary, but just to be on the safer side
+        del current_processing_points
 
-	# in addition to the normal isoband we have few special ones in case equality
-	# the following cases will not have an isovalue in-between
-	# indices are as [<lower, =lower, <lower, upper>, =upper, >upper]
-	# which are translated as [0, 1, 2, 3, 4] respectively
-	#
-	# 0 - 1, 1 - 0, 1 - 1, 3 - 3, 3 - 4 are not possible now
-	# 0 - 0, 4 - 4 were not possible even without equality check
+for current_critical in sorted_nodes:
+    print current_critical, len(segmented_triangle_regions[current_critical])
 
-	lower_intolerable_indices = ['000', '001', '010', '011', '100', '101', '110', '111']
-	upper_intolerable_indices = ['333', '334', '343', '344', '433', '434', '443', '444']
-
-	if ((isoband in lower_intolerable_indices) or (isoband in upper_intolerable_indices)):
-		print simplex_scalar, previous_scalar, current_scalar
-		print 'The face', cell_indices[cell_points], 'is not part of the segmentation', isoband
-	else:
-		print simplex_scalar, previous_scalar, current_scalar
-		print 'The face', cell_indices[cell_points], 'is part of the segmentation', isoband
-
-	#print simplex_scalar, previous_scalar, current_scalar, first + second + third
-
-
-for simplexID in range(1209473, 1209473 + 5):
-	triangulationRequest.Simplexidentifier = simplexID
-	renderView1.Update()
-	triangulationData = servermanager.Fetch(triangulationRequest)
-	numTriangulationCells = triangulationData.GetNumberOfCells()
-	for index in xrange(numTriangulationCells):
-		# process all the cells in the link
-		current_cell = triangulationData.GetCell(index)
-
-		previous_point = current_cell.GetPoints().GetPoint(0)
-		current_point = current_cell.GetPoints().GetPoint(1)
-
-		previous_point_identifier = point_coordinates[previous_point]
-		current_point_identifier = point_coordinates[current_point]
-
-		identifiers = [simplexID, ': ', previous_point_identifier, ', ', current_point_identifier]
-
-		print ''.join(map(str, identifiers))
-	print ''
-
+print datetime.now() - startTime, 'Done! :)'
 #os._exit(0)
