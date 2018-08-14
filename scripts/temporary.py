@@ -16,7 +16,7 @@ for current_critical in reversed(sorted_nodes):
         current_processing_points = [current_critical]
 
         # process all points between current_critical and next_critical
-        while len(current_processing_points > 0):
+        while (len(current_processing_points) > 0):
 
             # process the first element of the processing list
             simplex_point_identifier = current_processing_points.pop(0)
@@ -28,7 +28,7 @@ for current_critical in reversed(sorted_nodes):
             # find the number of lines connected to the 1-simplex in the link
             num_link_lines = triangulationData.GetNumberOfCells()
             # process all lines in the link
-        	for index in xrange(num_link_lines):
+            for index in xrange(num_link_lines):
                 # In VTK's indexing module, a line is identified as birectional
                 # so even if one direction of a line has been processed
                 # the other might not have been, so I can't have a check here
@@ -63,8 +63,8 @@ for current_critical in reversed(sorted_nodes):
                     lower_scalar_bound = point_scalars[current_critical]
                     upper_scalar_bound = point_scalars[next_critical]
 
-                    print 'lower_scalar_bound', lower_scalar_bound
-                    print 'higher_scalar_bound', upper_scalar_bound
+                    #print 'lower_scalar_bound', lower_scalar_bound
+                    #print 'higher_scalar_bound', upper_scalar_bound
 
                     # find if this point is lower/equal/upper than the bounds
                     first = calculate_isoband_index(simplex_scalar, lower_scalar_bound, upper_scalar_bound)
@@ -75,12 +75,16 @@ for current_critical in reversed(sorted_nodes):
                     isoband_value = first + second + third
 
                     # check if the isoband passes through the triangle
-                    if ((isoband_value in lower_intolerable_indices) or (isoband_value in upper_intolerable_indices)):
-                        print simplex_scalar, previous_scalar, next_scalar
-                        print 'The face', current_triangle, 'is not part of the segmentation', isoband_value
-                    else:
-                        print simplex_scalar, previous_scalar, next_scalar
-                        print 'The face', current_triangle, 'is part of the segmentation', isoband_value
+                    #if ((isoband_value in lower_intolerable_indices) or (isoband_value in upper_intolerable_indices)):
+                        #print simplex_scalar, previous_scalar, next_scalar
+                        #print 'The face', current_triangle_index, 'is not part of the segmentation', isoband_value
+                    #else:
+                        #print simplex_scalar, previous_scalar, next_scalar
+                        #print 'The face', current_triangle_index, 'is part of the segmentation', isoband_value
+                        #processed_triangles[current_triangle_index] = current_critical
+
+                    if not ((isoband_value in lower_intolerable_indices) or (isoband_value in upper_intolerable_indices)):
+                        processed_triangles[current_triangle_index] = current_critical
 
                     # make sure k-simplices are not processed again
                     # make sure the links for these points haven't already been computed
@@ -89,7 +93,6 @@ for current_critical in reversed(sorted_nodes):
                         current_processing_points.append(previous_point_identifier)
                     if next_point_identifier not in processed_points:
                         current_processing_points.append(next_point_identifier)
-                    processed_triangles[current_triangle_index] = current_critical
 
             # add the current 0-simplex to the processed dataset
             processed_points[simplex_point_identifier] = current_critical
@@ -99,6 +102,6 @@ for current_critical in reversed(sorted_nodes):
 # that will have all triangles in it's segmentation
 processed_critical_points = dict((v, [k for (k, xx) in filter(lambda (key, value): value == v, processed_triangles.items())]) for v in set(processed_triangles.values()))
 
-print 'Yes we can'
+print 'Yes we can, but too much time'
 for critical_point in processed_critical_points.keys():
     print critical_point, len(processed_critical_points[critical_point])
