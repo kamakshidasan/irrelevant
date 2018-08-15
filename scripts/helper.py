@@ -1,5 +1,6 @@
 import os, re, shutil, pickle, inspect, csv, sys, math
 import numpy as np
+from collections import defaultdict
 
 # List of constants
 CSV_EXTENSION = '.csv'
@@ -15,7 +16,9 @@ PAIRS_INFIX = '-pairs-'
 TREE_INFIX = '-tree-'
 NODES_INFIX = '-nodes-'
 ARCS_INFIX = '-arcs-'
+SEGMENTATION_INFIX = '-segmentation-'
 SCREENSHOT_INFIX = '-screenshot-'
+PARENTS_INFIX = '-parents-'
 COMPARE_PREFIX = 'compare-'
 EDIT_DISTANCE_RESULT = 'results'
 
@@ -48,6 +51,7 @@ PAIRS_FOLDER = 'pairs'
 TREES_FOLDER = 'trees'
 SCRIPTS_FOLDER = 'scripts'
 SCREENSHOT_FOLDER = 'screenshots'
+SEGMENTATION_FOLDER = 'segmentation'
 INTERMEDIATE_FOLDER = 'intermediate'
 PERSISTENCE_FOLDER = 'persistence'
 DICTIONARY_FOLDER = 'dictionary'
@@ -64,6 +68,7 @@ JT_FOLDER = 'jt'
 CLIQUE_GRAPHS_FOLDER = 'clique-graphs'
 STRINGS_FOLDER = 'strings'
 STABILITY_FOLDER = 'stability'
+PARENTS_FOLDER = 'parents'
 
 PYTHON_COMMAND = 'python'
 PARAVIEW_COMMAND = 'paraview'
@@ -98,6 +103,19 @@ S1_MATRIX_IDENTIFIER = 1
 S2_MATRIX_IDENTIFIER = 2
 
 GAP_NODE = -1
+
+# in addition to the normal isoband we have few special ones in case equality
+# the following cases will not have an isovalue in-between
+# indices are as [<lower, =lower, <lower, upper>, =upper, >upper]
+# which are translated as [0, 1, 2, 3, 4] respectively
+#
+# 0 - 1, 1 - 0, 1 - 1, 3 - 3, 3 - 4 are not possible now
+# 0 - 0, 4 - 4 were not possible even without equality check
+
+lower_intolerable_indices = ['000', '001', '010', '011', '100', '101', '110', '111']
+upper_intolerable_indices = ['333', '334', '343', '344', '433', '434', '443', '444']
+
+cheap_intolerable_indices = ['000', '222']
 
 # get working directory and add '/' at the end
 def cwd():
@@ -285,6 +303,13 @@ def save_dictionary(dictionary, file_name, identifier):
 	with open(dictionary_file_path, 'wb') as handle:
 		pickle.dump(dictionary, handle)
 
+# save dictionary to file
+def save_object(dictionary, file_name):
+	dictionary_file_arguments = [file_name, BIN_EXTENSION]
+	dictionary_file_path = get_output_path(current_path(), dictionary_file_arguments, folder_name = DICTIONARY_FOLDER)
+	with open(dictionary_file_path, 'wb') as handle:
+		pickle.dump(dictionary, handle)
+
 # used in edit-distance to save intermediate matrices
 def save_matrix(dictionary, filenames, identifier):
 	matrix_file_arguments = [join_strings(filenames), identifier, BIN_EXTENSION]
@@ -418,6 +443,50 @@ def save_stability(scalars, birth_pairs, stability_file_path):
 	stability_file.close()
 
 
+# i remember writing countless System.out.println()
+# to output to a HTML file almost three years back
+def save_segmentation(point_to_coordinates, triangle_index_to_points, processed_triangles, segmentation_file_path):
+	stability_file = cfile(segmentation_file_path, 'w')
+
+	num_points = len(point_to_coordinates.keys())
+	num_triangles = len(processed_triangles.keys())
+
+	stability_file.wl('# vtk DataFile Version 4.2')
+	stability_file.wl('split tree segmentation')
+	stability_file.wl('ASCII')
+	stability_file.wl('DATASET UNSTRUCTURED_GRID')
+	stability_file.wl('POINTS ' + str(num_points) + ' float')
+
+	for point in sorted(point_to_coordinates.keys()):
+		stability_file.wl(" ".join(map(str, point_to_coordinates[point])))
+	stability_file.wl('')
+
+	stability_file.wl('CELLS ' + str(num_triangles) + ' ' + str(4 * num_triangles))
+	for triangle in sorted(processed_triangles.keys()):
+		triangle_points = map(int, list(triangle_index_to_points[triangle]))
+	    cell_data = [3]
+	    cell_data.extend(triangle_points)
+		stability_file.wl(" ".join(map(str, cell_data)))
+
+	stability_file.wl('')
+
+	stability_file.wl('CELL_TYPES ' + str(num_triangles))
+	for edge_type in range(0, num_triangles):
+		stability_file.wl('5')
+
+	stability_file.wl('')
+
+	stability_file.wl('CELL_DATA ' + str(num_triangles))
+	stability_file.wl('SCALARS segmentation int')
+	stability_file.wl('LOOKUP_TABLE default')
+
+	for triangle in sorted(processed_triangles.keys()):
+		segmentation = processed_triangles[triangle]
+		stability_file.wl(str(segmentation))
+	stability_file.wl('')
+
+	stability_file.close()
+
 # indices are as [<lower, =lower, <lower, upper>, = upper, >upper]
 def calculate_isoband_index(scalar, lower, upper):
 	if (scalar < lower):
@@ -432,3 +501,12 @@ def calculate_isoband_index(scalar, lower, upper):
 		return '3'
 	else:
 		return '2'
+
+# indices are as [<lower, =lower, <lower, upper>, = upper, >upper]
+def calculate_cheap_isoband_index(scalar, lower, upper):
+	if (scalar < lower):
+		return '0'
+	elif (scalar > upper):
+		return '2'
+	else:
+		return '1'
