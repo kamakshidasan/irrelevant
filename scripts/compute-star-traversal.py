@@ -12,7 +12,10 @@ startTime = datetime.now()
 
 # initialize Path variables
 # create a new 'Legacy VTK Reader'
-full_file_name = 'tv_1.vtk'
+full_file_name = 'tv_90.vtk'
+num_subdivisions = 2
+simplification_percentage = 2
+
 parent_path = cwd()
 data_path = get_input_path(parent_path)
 file_path = join_file_path(data_path, full_file_name)
@@ -20,7 +23,6 @@ file_name = get_file_name(full_file_name)
 
 # create a new 'Legacy VTK Reader'
 inputFile = LegacyVTKReader(FileNames=[file_path])
-simplification_percentage = 0.1
 
 # get active view
 renderView1 = GetActiveViewOrCreate('RenderView')
@@ -56,7 +58,7 @@ renderView1.Update()
 
 # create a new 'Loop Subdivision'
 loopSubdivision1 = LoopSubdivision(Input=triangulate1)
-loopSubdivision1.NumberofSubdivisions = 3
+loopSubdivision1.NumberofSubdivisions = num_subdivisions
 loopSubdivision1Display = Show(loopSubdivision1, renderView1)
 loopSubdivision1Display.Representation = 'Surface'
 Hide(triangulate1, renderView1)
@@ -323,6 +325,7 @@ nodes = {}
 birth_pairs = {}
 arcs = defaultdict(list)
 
+# Read the merge tree nodes
 with open(nodes_file_path, 'rb') as csvfile:
 	csvfile.readline()
 	spamreader = csv.reader(csvfile, delimiter=' ')
@@ -336,7 +339,7 @@ with open(nodes_file_path, 'rb') as csvfile:
 		nodes[node_id] = vertex_index
 		scalars[vertex_index] = scalar_value
 
-# Write the Merge Tree to file
+# Write the merge tree to file
 tree_file_arguments = [tree_type, TREE_INFIX, file_name, CSV_EXTENSION]
 tree_file_path = get_output_path(file_path, tree_file_arguments, folder_name = TREES_FOLDER)
 
@@ -473,7 +476,6 @@ for node in sorted_nodes:
 	arcs[node][:] = [arc_node for arc_node in arcs[node] if sorted_nodes.index(arc_node) < sorted_nodes.index(node)]
 
 # just for satisfaction
-#print 'final arcs'
 #for node in sorted_nodes:
 #	if arcs[node]:
 #		print node, arcs[node]
@@ -484,7 +486,7 @@ simplificationData = servermanager.Fetch(topologicalSimplification)
 numTriangles = simplificationData.GetNumberOfCells()
 numPoints = simplificationData.GetNumberOfPoints()
 
-coordinates_to_point = {}
+point_to_coordinates = {}
 point_scalars = {}
 
 # this is probably the most weirdest naming scheme I have ever used :P
@@ -515,16 +517,16 @@ for triangle_index in xrange(numTriangles):
 	triangle_index_to_points[triangle_index] = cell_points
 
 	# hash the coordinates to PointID
-	coordinates_to_point[coordinate1] = point1
-	coordinates_to_point[coordinate2] = point2
-	coordinates_to_point[coordinate3] = point3
+	point_to_coordinates[point1] = coordinate1
+	point_to_coordinates[point2] = coordinate2
+	point_to_coordinates[point3] = coordinate3
 
 # similarly iterate over all points in the surface and store their scalar values
 for point_index in xrange(numPoints):
 	point_scalar = simplificationData.GetPointData().GetArray('magnitude').GetValue(point_index)
 	point_scalars[point_index] = point_scalar
 
-
+# store the triangles of the segmented regions
 segmented_triangle_regions = defaultdict(list)
 
 # point: segment
@@ -586,7 +588,16 @@ for current_critical in sorted_nodes:
         del current_processing_points
 
 for current_critical in sorted_nodes:
-    print current_critical, len(segmented_triangle_regions[current_critical])
+    print current_critical, arcs[current_critical], len(segmented_triangle_regions[current_critical]), point_to_coordinates[current_critical]
+
+# just taking a region out of the equation for comparison
+really_high_region = sorted_nodes[1]
+processed_triangles = {k: v for k, v in processed_triangles.items() if v != really_high_region}
+
+# take screenshot of scalar field
+segmentation_file_arguments = [tree_type, SEGMENTATION_INFIX, file_name, VTK_EXTENSION]
+segmentation_file_path = get_output_path(file_path, segmentation_file_arguments, folder_name = SEGMENTATION_FOLDER)
+save_segmentation(point_to_coordinates, triangle_index_to_points, processed_triangles, segmentation_file_path)
 
 print datetime.now() - startTime, 'Done! :)'
 #os._exit(0)
