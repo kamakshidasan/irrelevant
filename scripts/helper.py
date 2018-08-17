@@ -1,6 +1,7 @@
 import os, re, shutil, pickle, inspect, csv, sys, math
 import numpy as np
 from collections import defaultdict
+import commands
 
 # List of constants
 CSV_EXTENSION = '.csv'
@@ -19,6 +20,8 @@ ARCS_INFIX = '-arcs-'
 SEGMENTATION_INFIX = '-segmentation-'
 SCREENSHOT_INFIX = '-screenshot-'
 PARENTS_INFIX = '-parents-'
+POSTORDER_INFIX = '-postorder-'
+TRIANGLES_INFIX = '-triangles-'
 COMPARE_PREFIX = 'compare-'
 EDIT_DISTANCE_RESULT = 'results'
 
@@ -49,6 +52,8 @@ INPUT_FOLDER = 'input'
 OUTPUT_FOLDER = 'output'
 PAIRS_FOLDER = 'pairs'
 TREES_FOLDER = 'trees'
+POSTORDER_FOLDER = 'postorder'
+TRIANGLES_FOLDER = 'triangles'
 SCRIPTS_FOLDER = 'scripts'
 SCREENSHOT_FOLDER = 'screenshots'
 SEGMENTATION_FOLDER = 'segmentation'
@@ -72,6 +77,7 @@ PARENTS_FOLDER = 'parents'
 
 PYTHON_COMMAND = 'python'
 PARAVIEW_COMMAND = 'paraview'
+JAR_COMMAND = 'java -jar'
 
 COMPUTE_SCRIPT = 'compute.py'
 SPLIT_MAKE_GRAPH_SCRIPT = 'split-make-graph.py'
@@ -235,7 +241,9 @@ def run_jar(jar_file, arguments):
 	# java -jar <jar_file> <arguments>
 	for argument in arguments:
 		command += ' ' + argument
-	os.system(command)
+
+	output = commands.getstatusoutput(command)
+	return output
 
 def get_dictionary(file_path, arguments):
 	# extension is always BIN
@@ -464,8 +472,8 @@ def save_segmentation(point_to_coordinates, triangle_index_to_points, processed_
 	stability_file.wl('CELLS ' + str(num_triangles) + ' ' + str(4 * num_triangles))
 	for triangle in sorted(processed_triangles.keys()):
 		triangle_points = map(int, list(triangle_index_to_points[triangle]))
-	    cell_data = [3]
-	    cell_data.extend(triangle_points)
+		cell_data = [3]
+		cell_data.extend(triangle_points)
 		stability_file.wl(" ".join(map(str, cell_data)))
 
 	stability_file.wl('')

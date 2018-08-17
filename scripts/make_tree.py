@@ -2,11 +2,10 @@ from helper import *
 
 tree_type = TREE_TYPE_SPLIT
 
-file_name = (sys.argv[1]).split('.')[0]
+file_name = ''
+file_path = ''
 
-file_path = os.path.abspath(inspect.getfile(inspect.currentframe()))
-
-scalars = {}
+split_scalars = {}
 visited = {}
 adjacency = {}
 pairs = {}
@@ -33,7 +32,7 @@ class Tree(object):
 def initialize_tree(index):
 	root = Tree()
 	root.index = index
-	root.label = scalars[index]
+	root.label = split_scalars[index]
 	root.pair = pairs[index]
 
 	# add mapping to dictionary
@@ -46,7 +45,7 @@ def add_node(index, parent):
 	node.index = index
 	parent.children.append(node)
 	node.parent = parent
-	node.label = scalars[index]
+	node.label = split_scalars[index]
 	node.pair = pairs[index]
 
 	# add mapping to dictionary
@@ -56,11 +55,11 @@ def add_node(index, parent):
 
 
 def compare_nodes(a, b):
-	# try to sort using the scalars
+	# try to sort using the split_scalars
 	# if they are equal, sort using index value
-	if scalars[a] > scalars[b]:
+	if split_scalars[a] > split_scalars[b]:
 		return 1
-	elif scalars[a] == scalars[b]:
+	elif split_scalars[a] == split_scalars[b]:
 		if a > b:
 			return 1
 		else:
@@ -69,7 +68,7 @@ def compare_nodes(a, b):
 		return -1
 
 def traverse(index, parent):
-	#print index, scalars[index]
+	#print index, split_scalars[index]
 	visited[index] = True
 	adjacency[index].sort(compare_nodes)
 	for node in adjacency[index]:
@@ -136,8 +135,8 @@ def get_merge_tree():
 			node1 = int(row[0])
 			node2 = int(row[1])
 
-			scalars[node1] = float(row[2])
-			scalars[node2] = float(row[3])
+			split_scalars[node1] = float(row[2])
+			split_scalars[node2] = float(row[3])
 
 			visited[node1] = False
 			visited[node2] = False
@@ -153,7 +152,7 @@ def get_merge_tree():
 
 	for i in adjacency.keys():
 		if len(adjacency[i]) == 1:
-			if (scalars[i] < scalars[adjacency[i][0]]):
+			if (split_scalars[i] < split_scalars[adjacency[i][0]]):
 				root = i
 
 	return root
@@ -171,7 +170,7 @@ def get_persistent_pairs():
 			node1 = int(row[0])
 			node2 = int(row[1])
 
-			#if (node1 in scalars.keys()) and (node2 in scalars.keys()):
+			#if (node1 in split_scalars.keys()) and (node2 in split_scalars.keys()):
 			# there will be pairs that do not exist in the merge tree
 			# they will be removed/ignored subsequently
 
@@ -185,15 +184,39 @@ def get_persistent_pairs():
 			birth[node2] = node1
 			death[node2] = node2
 
+def write_order():
+	postorder_file_arguments = [tree_type, POSTORDER_INFIX, file_name, CSV_EXTENSION]
+	postorder_file_path = get_output_path(file_path, postorder_file_arguments, folder_name = POSTORDER_FOLDER)
 
-root = get_merge_tree()
-get_persistent_pairs()
-tree = initialize_tree(root)
-traverse(root, tree)
-add_pairs(tree)
-postorder(tree)
-#print stringify_tree(tree)
+	postorder_file = open(postorder_file_path, 'w')
+	fieldnames = ['node', 'order']
 
-string_file_arguments = [file_name, TXT_EXTENSION]
-string_file_path = get_output_path(file_path, string_file_arguments, folder_name = STRINGS_FOLDER)
-save_string(stringify_tree(tree), string_file_path)
+	writer = csv.writer(postorder_file, delimiter=',')
+	writer.writerow(fieldnames)
+
+	for order_index in order_map.keys():
+		content = [order_map[order_index].index, order_index]
+		writer.writerow(content)
+
+	postorder_file.close()
+
+def make_tree(name, path):
+	global file_name, file_path
+	file_name = name
+	file_path = path
+	root = get_merge_tree()
+	get_persistent_pairs()
+	tree = initialize_tree(root)
+	traverse(root, tree)
+	add_pairs(tree)
+	postorder(tree)
+	#print stringify_tree(tree)
+
+
+	string_file_arguments = [file_name, TXT_EXTENSION]
+	string_file_path = get_output_path(file_path, string_file_arguments, folder_name = STRINGS_FOLDER)
+	save_string(stringify_tree(tree), string_file_path)
+
+	write_order()
+
+#make_tree((sys.argv[1]).split('.')[0], os.path.abspath(inspect.getfile(inspect.currentframe())))

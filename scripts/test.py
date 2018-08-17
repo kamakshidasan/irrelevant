@@ -11,7 +11,7 @@ except:
 	exit()
 
 count = start
-highest = 295
+highest = 230
 
 # reusing a syringe and a results file has the same impact
 # throw away the earlier used results file
@@ -25,13 +25,13 @@ except OSError:
 def print_statement():
 	global count
 	statement = ""
-	for j in range(0, 80):
+	for j in range(0, 230):
 		if count <= highest:
 			#statement += 'python edit-distance.py tv_'+str(count) + ' tv_1'+ '\n'
 			#statement += 'python edit-distance-gaps.py tv_'+str(count) + ' tv_'+str(count-1) + '\n'
 			#statement += 'python print-gaps.py tv_'+str(count) + ' tv_'+str(count-1) + '\n'
 			#statement += 'python contour-distance.py tv_'+str(count) + ' tv_'+str(count-1) + '\n'
-			statement += 'java -jar apted.jar -f '
+			statement += 'java -jar apted-time.jar -f '
 			statement += '../strings/tv_'+str(count) + '.txt ../strings/tv_0.txt' + '\n'
 			count+=1
 
