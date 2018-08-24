@@ -15,7 +15,7 @@ startTime = datetime.now()
 
 # initialize Path variables
 # create a new 'Legacy VTK Reader'
-full_file_name = 'adhitya.vtk'
+full_file_name = 'tv_33.vtk'
 comparison_tree = 'tv_0'
 num_subdivisions = 2
 simplification_percentage = 1.2
@@ -594,10 +594,103 @@ for current_critical in sorted_nodes:
 for current_critical in sorted_nodes:
     print current_critical, arcs[current_critical], len(segmented_triangle_regions[current_critical]), point_to_coordinates[current_critical]
 
+
+segmentation_mapping = {}
+comparison_order_mapping = {}
+comparison_tree_nodes = []
+
+current_segmentation_mapping = defaultdict(list)
+comparison_segmentation_mapping = defaultdict(list)
+
 # *******************************************
 # find the mappings and get a string for APTED
 make_tree(file_name, file_path)
 
+#*********************************************
+
+# get the postorder mapping file
+postorder_file_arguments = [tree_type, POSTORDER_INFIX, file_name, CSV_EXTENSION]
+postorder_file_path = get_output_path(file_path, postorder_file_arguments, folder_name = POSTORDER_FOLDER)
+
+# read the postorder mapping file
+with open(postorder_file_path, 'rb') as csvfile:
+    csvfile.readline()
+    spamreader = csv.reader(csvfile, delimiter=' ')
+    for r in spamreader:
+        row = r[0].split(',')
+        node_id = int(row[0])
+        order = int(row[1])
+        segmentation_mapping[node_id] = order
+
+# though I write the triangles to a file, they are not used except for first index
+# save the current segmentation associated with each face before mapping begins
+triangle_file_arguments = [tree_type, TRIANGLES_UNMAPPED_INFIX, file_name, CSV_EXTENSION]
+triangle_file_path = get_output_path(file_path, triangle_file_arguments, folder_name = TRIANGLES_UNMAPPED_FOLDER)
+
+triangle_file = open(triangle_file_path, 'w')
+fieldnames = ['triangle', 'segmentation']
+writer = csv.writer(triangle_file, delimiter=',')
+writer.writerow(fieldnames)
+
+# iterate through all triangles
+for triangle_index in xrange(numTriangles):
+	try:
+		segment = segmentation_mapping[processed_triangles[triangle_index]]
+		content = [triangle_index, segment]
+		writer.writerow(content)
+		# append to dictionary
+		current_segmentation_mapping[segment].append(triangle_index)
+	except:
+		do_nothing = True
+
+triangle_file.close()
+
+# read the segmentation associated with the comparison timestep
+
+triangle_file_arguments = [tree_type, TRIANGLES_UNMAPPED_INFIX, comparison_tree, CSV_EXTENSION]
+triangle_file_path = get_output_path(file_path, triangle_file_arguments, folder_name = TRIANGLES_UNMAPPED_FOLDER)
+
+# Read the merge tree nodes
+with open(triangle_file_path, 'rb') as csvfile:
+	csvfile.readline()
+	spamreader = csv.reader(csvfile, delimiter=' ')
+	for r in spamreader:
+		row = r[0].split(',')
+		triangle_index = int(row[0])
+		segment = int(row[1])
+		comparison_segmentation_mapping[segment].append(triangle_index)
+
+
+# write the coefficients to a file
+# I like the file to be thought of a coefficient matrix
+matrix_file_arguments = [tree_type, MATRIX_INFIX, file_name, '-', comparison_tree, CSV_EXTENSION]
+matrix_file_path = get_output_path(file_path, matrix_file_arguments, folder_name = MATRIX_FOLDER)
+
+matrix_file = open(matrix_file_path, 'w')
+fieldnames = ['current_segment', 'comparison_segment', 'coefficient']
+writer = csv.writer(matrix_file, delimiter=',')
+writer.writerow(fieldnames)
+
+# compare both segments and find appropriate coefficients
+for current_segment in sorted(current_segmentation_mapping.keys()):
+	for comparison_segment in sorted(comparison_segmentation_mapping.keys()):
+		current_segment_set = set(current_segmentation_mapping[current_segment])
+		comparison_segment_set = set(comparison_segmentation_mapping[comparison_segment])
+
+		intersection_set = current_segment_set.intersection(comparison_segment_set)
+		union_set = current_segment_set.union(comparison_segment_set)
+
+		# equivalent to number of intersecting triangles/all set of triangles
+		coefficient = float(len(intersection_set))/ float(len(union_set))
+
+		#if len(intersection_set) != 0:
+		# maintain a small threshold for the matrix of at least 10% matching
+		# otherwise this just gets too crowded with small values
+		if round(coefficient, 2) > 0.1 :
+			content = [current_segment, comparison_segment, round(coefficient,2)]
+			writer.writerow(content)
+
+matrix_file.close()
 
 # **********************************************
 # get string based version for both trees
@@ -607,10 +700,6 @@ string_file_path = get_output_path(file_path, string_file_arguments, folder_name
 # if you have to compare with another tree, this should be the place to change it
 comparison_file_arguments = [comparison_tree, TXT_EXTENSION]
 comparison_file_path = get_output_path(file_path, comparison_file_arguments, folder_name = STRINGS_FOLDER)
-
-segmentation_mapping = {}
-comparison_order_mapping = {}
-comparison_tree_nodes = []
 
 # find the mapping from APTED
 (value, output)  = run_jar('apted-mapping.jar', ['-m -f', string_file_path, comparison_file_path])
@@ -629,19 +718,6 @@ for mapping in output:
 	comparison_tree_nodes.append(comparison_tree_node)
 	print current_tree_node, "->" ,comparison_tree_node
 
-# get the postorder mapping file
-postorder_file_arguments = [tree_type, POSTORDER_INFIX, file_name, CSV_EXTENSION]
-postorder_file_path = get_output_path(file_path, postorder_file_arguments, folder_name = POSTORDER_FOLDER)
-
-# read the postorder mapping file
-with open(postorder_file_path, 'rb') as csvfile:
-    csvfile.readline()
-    spamreader = csv.reader(csvfile, delimiter=' ')
-    for r in spamreader:
-        row = r[0].split(',')
-        node_id = int(row[0])
-        order = int(row[1])
-        segmentation_mapping[node_id] = order
 
 # Here is what happens next
 # triangle -> node -> postorder_index -> comparison_postorder_index
@@ -717,4 +793,4 @@ triangle_file.close()
 
 print datetime.now() - startTime, 'Done! :)'
 
-os._exit(0)
+#os._exit(0)
