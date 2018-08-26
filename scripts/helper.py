@@ -2,6 +2,8 @@ import os, re, shutil, pickle, inspect, csv, sys, math
 import numpy as np
 from collections import defaultdict
 import commands
+import pandas as pd
+from collections import Counter
 
 # List of constants
 CSV_EXTENSION = '.csv'
@@ -38,6 +40,7 @@ CONTOUR_TREE_SUFFIX = '-contour'
 SPLIT_TREE_SUFFIX = '-split'
 STRING_SUFFIX = '-string'
 TRIANGLES_UNMAPPED_INFIX = '-triangles-unmapped-'
+SEGMENTATION_TRIANGLES_PREFIX = 'segmentation-triangles-'
 
 TREE_TYPE_SPLIT = 'split'
 TREE_TYPE_CONTOUR = 'contour'
@@ -78,6 +81,7 @@ STRINGS_FOLDER = 'strings'
 STABILITY_FOLDER = 'stability'
 PARENTS_FOLDER = 'parents'
 MATRIX_FOLDER = 'matrix'
+SEGMENTATION_TRIANGLES_FOLDER = 'segmentation-triangles'
 
 PYTHON_COMMAND = 'python'
 PARAVIEW_COMMAND = 'paraview'
@@ -174,6 +178,9 @@ def get_folder(name):
 
 def get_input_path(file_path):
 	return os.path.join(get_parent_path(file_path), INPUT_FOLDER)
+
+def get_triangles_path(file_path):
+	return os.path.join(get_parent_path(file_path), TRIANGLES_FOLDER)
 
 # Takes contourForest.TreeType parameter and returns a string
 def get_tree_type(tree_type):
