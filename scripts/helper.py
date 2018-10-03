@@ -2,8 +2,8 @@ import os, re, shutil, pickle, inspect, csv, sys, math
 import numpy as np
 from collections import defaultdict
 import commands
-import pandas as pd
 from collections import Counter
+from scipy.spatial import distance
 
 # List of constants
 CSV_EXTENSION = '.csv'
@@ -41,6 +41,10 @@ SPLIT_TREE_SUFFIX = '-split'
 STRING_SUFFIX = '-string'
 TRIANGLES_UNMAPPED_INFIX = '-triangles-unmapped-'
 SEGMENTATION_TRIANGLES_PREFIX = 'segmentation-triangles-'
+COMPARISON_APTED_INFIX = '-comparison-apted-'
+COMPARISON_UNORDERED_INFIX = '-comparison-unordered-'
+COORDINATES_INFIX = '-coordinates-'
+CONFIDENCE_INFIX = '-confindence-'
 
 TREE_TYPE_SPLIT = 'split'
 TREE_TYPE_CONTOUR = 'contour'
@@ -82,6 +86,12 @@ STABILITY_FOLDER = 'stability'
 PARENTS_FOLDER = 'parents'
 MATRIX_FOLDER = 'matrix'
 SEGMENTATION_TRIANGLES_FOLDER = 'segmentation-triangles'
+COMPARISON_APTED_FOLDER = 'comparison-apted'
+COMPARISON_UNORDERED_FOLDER = 'comparison-unordered'
+COORDINATES_FOLDER = 'coordinates'
+TUPLES_FOLDER = 'tuples'
+RECON_FOLDER = 'recon'
+CONFIDENCE_FOLDER = 'confidence' # what a name :P
 
 PYTHON_COMMAND = 'python'
 PARAVIEW_COMMAND = 'paraview'
@@ -96,6 +106,8 @@ GENERATE_JT_FILES_SCRIPT = 'generate-jt-files.py'
 
 CONTOUR_MAKE_TREE_SCRIPT = 'contour-make-tree.py'
 SPLIT_MAKE_TREE_SCRIPT = 'split-make-tree.py'
+
+TIMESTEP_PREFIX = 'tv_'
 
 INFINITY = float('inf')
 
@@ -189,6 +201,12 @@ def get_tree_type(tree_type):
 # join two strings
 def join_strings(strings):
 	return '-'.join(strings)
+
+def get_timestep(string):
+	# remove extension if it exists
+	file_name = string.split('.')[0]
+	timestep = file_name.split(TIMESTEP_PREFIX)[1]
+	return timestep
 
 # Get a new filename in the output directory
 # This takes in a file from input directory and gives out a string with ../output/file_name
@@ -297,12 +315,54 @@ def create_output_folder(file_path):
 def delete_output_folder(file_path):
 	shutil.rmtree(get_output_folder(file_path))
 
+# remove ds_store
+def remove_ds_store(file_list):
+	try:
+		file_list.remove('.DS_Store')
+	except:
+		pass
+
+def get_comparison_indices(s):
+	# seperate on '-'
+	current_timestep, sep, comparison_timestep = s.partition('-')
+	# seperate on 'comparison_timestep.extension'
+	comparison_timestep, sep, extension = comparison_timestep.partition('.')
+
+	# idea is that both if you have both values in the filename,
+	# and you join just the indice values together,
+	# and sort them, it is equivalent to sorting the files
+
+	# seperate current_timestep based on it's prefix
+	prefix, sep, current_timestep = current_timestep.partition('_')
+	prefix, sep, comparison_timestep = comparison_timestep.partition('_')
+
+	return [current_timestep, comparison_timestep]
+
+# used in run: sort files according to characters and numeric
+def sort_comparison_files(s):
+	[current_timestep, comparison_timestep] = get_comparison_indices(s)
+	index = current_timestep + comparison_timestep
+
+	# isnumeric only works for unicode strings
+	if unicode(index, 'utf-8').isnumeric():
+		return int(index)
+	return float('inf')
+
 # used in run: sort files according to characters and numeric
 def sort_files(s):
 	# seperate on '_'
 	timestep, sep, index = s.partition('_')
 	# seperate on 'index.extension'
 	index, sep, extension = index.partition('.')
+	# isnumeric only works for unicode strings
+	if unicode(index, 'utf-8').isnumeric():
+		return int(index)
+	return float('inf')
+
+# used in run: sort files according to characters and numeric
+def sort_files_numeric(s):
+	# seperate on 'index.extension'
+	index, sep, extension = s.partition('.')
 	# isnumeric only works for unicode strings
 	if unicode(index, 'utf-8').isnumeric():
 		return int(index)
@@ -502,6 +562,54 @@ def save_segmentation(point_to_coordinates, triangle_index_to_points, processed_
 	for triangle in sorted(processed_triangles.keys()):
 		segmentation = processed_triangles[triangle]
 		stability_file.wl(str(segmentation))
+	stability_file.wl('')
+
+	stability_file.close()
+
+
+# i remember writing countless System.out.println()
+# to output to a HTML file almost three years back
+# the only difference from the above method and this is that
+# cell data type is int above and it is float now
+# what a facepalm
+def save_confidence_region(point_to_coordinates, triangle_index_to_points, processed_triangles, segmentation_file_path):
+	stability_file = cfile(segmentation_file_path, 'w')
+
+	num_points = len(point_to_coordinates.keys())
+	num_triangles = len(processed_triangles.keys())
+
+	stability_file.wl('# vtk DataFile Version 4.2')
+	stability_file.wl('split tree segmentation')
+	stability_file.wl('ASCII')
+	stability_file.wl('DATASET UNSTRUCTURED_GRID')
+	stability_file.wl('POINTS ' + str(num_points) + ' float')
+
+	for point in sorted(point_to_coordinates.keys()):
+		stability_file.wl(" ".join(map(str, point_to_coordinates[point])))
+	stability_file.wl('')
+
+	stability_file.wl('CELLS ' + str(num_triangles) + ' ' + str(4 * num_triangles))
+	for triangle in sorted(processed_triangles.keys()):
+		triangle_points = map(int, list(triangle_index_to_points[triangle]))
+		cell_data = [3]
+		cell_data.extend(triangle_points)
+		stability_file.wl(" ".join(map(str, cell_data)))
+
+	stability_file.wl('')
+
+	stability_file.wl('CELL_TYPES ' + str(num_triangles))
+	for edge_type in range(0, num_triangles):
+		stability_file.wl('5')
+
+	stability_file.wl('')
+
+	stability_file.wl('CELL_DATA ' + str(num_triangles))
+	stability_file.wl('SCALARS segmentation float')
+	stability_file.wl('LOOKUP_TABLE default')
+
+	for triangle in sorted(processed_triangles.keys()):
+		confidence = processed_triangles[triangle]
+		stability_file.wl(str(confidence))
 	stability_file.wl('')
 
 	stability_file.close()

@@ -4,7 +4,7 @@ from datetime import datetime
 from helper import *
 from sets import Set
 from collections import defaultdict
-from make_tree import *
+from make_extremum_tree import *
 from collections import Counter
 
 
@@ -15,8 +15,8 @@ startTime = datetime.now()
 
 # initialize Path variables
 # create a new 'Legacy VTK Reader'
-full_file_name = 'tv_33.vtk'
-comparison_tree = 'tv_0'
+full_file_name = 'adhitya.vtk'
+comparison_tree = 'aishwarya'
 num_subdivisions = 2
 simplification_percentage = 1.2
 
@@ -314,13 +314,6 @@ Hide(tTKSphereFromPointThreshold, renderView1)
 Hide(tube, renderView1)
 
 SetActiveSource(topologicalSimplification)
-triangulationRequest = TTKTriangulationRequest(Input=topologicalSimplification)
-triangulationRequest.Simplex = 'Vertex'
-triangulationRequest.Simplexidentifier = 1209472
-triangulationRequest.Requesttype = 'Link'
-triangulationRequestDisplay = Show(triangulationRequest, renderView1)
-triangulationRequestDisplay.Representation = 'Surface'
-Hide(topologicalSimplification, renderView1)
 renderView1.Update()
 
 # initialize dictionaries
@@ -591,8 +584,8 @@ for current_critical in sorted_nodes:
 		# unnecessary, but just to be on the safer side
         del current_processing_points
 
-for current_critical in sorted_nodes:
-    print current_critical, arcs[current_critical], len(segmented_triangle_regions[current_critical]), point_to_coordinates[current_critical]
+#for current_critical in sorted_nodes:
+#    print current_critical, arcs[current_critical], len(segmented_triangle_regions[current_critical]), point_to_coordinates[current_critical]
 
 
 segmentation_mapping = {}
@@ -602,9 +595,23 @@ comparison_tree_nodes = []
 current_segmentation_mapping = defaultdict(list)
 comparison_segmentation_mapping = defaultdict(list)
 
+# write the coordinates to a file
+coordinates_file_arguments = [tree_type, COORDINATES_INFIX, file_name, CSV_EXTENSION]
+coordinates_file_path = get_output_path(file_path, coordinates_file_arguments, folder_name = COORDINATES_FOLDER)
+coordinates_file = open(coordinates_file_path, 'w')
+fieldnames = ['identifier', 'x', 'y', 'z']
+writer = csv.writer(coordinates_file, delimiter=',')
+writer.writerow(fieldnames)
+
+for critical_point in scalars.keys():
+	[x, y, z] = point_to_coordinates[critical_point]
+	writer.writerow([critical_point, x, y, z])
+
+coordinates_file.close()
+
 # *******************************************
 # find the mappings and get a string for APTED
-make_tree(file_name, file_path)
+make_extremum_tree(file_name, file_path)
 
 #*********************************************
 
@@ -622,7 +629,10 @@ with open(postorder_file_path, 'rb') as csvfile:
         order = int(row[1])
         segmentation_mapping[node_id] = order
 
+#print segmentation_mapping
+
 # though I write the triangles to a file, they are not used except for first index
+# if you change the comparison_file they will be used
 # save the current segmentation associated with each face before mapping begins
 triangle_file_arguments = [tree_type, TRIANGLES_UNMAPPED_INFIX, file_name, CSV_EXTENSION]
 triangle_file_path = get_output_path(file_path, triangle_file_arguments, folder_name = TRIANGLES_UNMAPPED_FOLDER)
@@ -641,12 +651,11 @@ for triangle_index in xrange(numTriangles):
 		# append to dictionary
 		current_segmentation_mapping[segment].append(triangle_index)
 	except:
-		do_nothing = True
+		pass
 
 triangle_file.close()
 
 # read the segmentation associated with the comparison timestep
-
 triangle_file_arguments = [tree_type, TRIANGLES_UNMAPPED_INFIX, comparison_tree, CSV_EXTENSION]
 triangle_file_path = get_output_path(file_path, triangle_file_arguments, folder_name = TRIANGLES_UNMAPPED_FOLDER)
 
@@ -689,8 +698,10 @@ for current_segment in sorted(current_segmentation_mapping.keys()):
 		if round(coefficient, 2) > 0.1 :
 			content = [current_segment, comparison_segment, round(coefficient,2)]
 			writer.writerow(content)
+			#print content
 
 matrix_file.close()
+
 
 # **********************************************
 # get string based version for both trees
@@ -701,8 +712,20 @@ string_file_path = get_output_path(file_path, string_file_arguments, folder_name
 comparison_file_arguments = [comparison_tree, TXT_EXTENSION]
 comparison_file_path = get_output_path(file_path, comparison_file_arguments, folder_name = STRINGS_FOLDER)
 
+# as you read the output from APTED
+# write it as a CSV file as well
+comparison_apted_file_arguments = [file_name, '-', comparison_tree, CSV_EXTENSION]
+comparison_apted_file_path = get_output_path(file_path, comparison_apted_file_arguments, folder_name = COMPARISON_APTED_FOLDER)
+
+comparison_apted_file = open(comparison_apted_file_path, 'w')
+fieldnames = ['timestep', 'current', 'comparison']
+writer = csv.writer(comparison_apted_file, delimiter=',')
+writer.writerow(fieldnames)
+
 # find the mapping from APTED
-(value, output)  = run_jar('apted-mapping.jar', ['-m -f', string_file_path, comparison_file_path])
+(value, output)  = run_jar('apted-coefficients.jar', ['-m -f ', string_file_path, comparison_file_path, '-c ', matrix_file_path])
+
+print output
 
 # parse the output from APTED and store it in a dictionary
 output = output.split("\n")
@@ -718,6 +741,12 @@ for mapping in output:
 	comparison_tree_nodes.append(comparison_tree_node)
 	print current_tree_node, "->" ,comparison_tree_node
 
+	# write the output to a file
+	timestep = file_name.split('tv_')[1]
+	writer.writerow([timestep, current_tree_node, comparison_tree_node])
+
+comparison_apted_file.close()
+
 
 # Here is what happens next
 # triangle -> node -> postorder_index -> comparison_postorder_index
@@ -731,37 +760,43 @@ for mapping in output:
 for triangle in processed_triangles:
 	segmentation = processed_triangles[triangle]
 	#print 'segmentation', segmentation
-	postorder_segmentation = segmentation_mapping[segmentation]
-	#print 'postorder', postorder_segmentation
-	comparison_index = comparison_order_mapping[postorder_segmentation]
-	#print 'comparison', comparison_index
+	# when you start merging saddles, it happens that the merged saddles
+	# and their corresponding triangles don't have a mapping
+	try:
+		postorder_segmentation = segmentation_mapping[segmentation]
+		#print 'postorder', postorder_segmentation
+		comparison_index = comparison_order_mapping[postorder_segmentation]
+		#print 'comparison', comparison_index
+		processed_triangles[triangle] = comparison_index
+	except:
+		# this happens when the triangles associated with the mapped saddle gets merged
+		processed_triangles[triangle] = None
 
-	processed_triangles[triangle] = comparison_index
+# remove the triangles that were marked to be None
+# these are triangles that were part of the segmentation of the initial merge tree
+# but now not present because of the merging
+processed_triangles = {k: v for k, v in processed_triangles.iteritems() if v is not None}
 
 #**************************
+# remove the segmented regions associated with the root and the saddle connected to the root
+# since the mappings are indiced in postorder,
+# the root will have the maximum index value, the saddle with second highest index value
+# remove the segmented regions associated with the those two values
+
+# Adhitya: I can't find why the segmentation associated with the root [global minima]
+# is never computed. It's good that I don't need it.
+# Therefore, the highest index is associated with the saddle connected to the root.
+# Till that reason is found, remove only the highest guy - which should be the saddle
+postorder_indices = list(set(processed_triangles.values()))
+postorder_indices = sorted(postorder_indices, reverse=True)
+removable_segmentation = postorder_indices[0]
+print "removable_segmentation", removable_segmentation
 
 # just taking a region out of the equation for comparison
-# find the number of triangles in each segmented region
-triangle_counter = Counter()
-for v in processed_triangles.itervalues():
-	triangle_counter.update(set([v]))
-
-print triangle_counter, 'triangle_counter'
-really_high_region = triangle_counter.most_common()[0][0]
-print really_high_region
-
-#really_high_region = comparison_order_mapping[segmentation_mapping[sorted_nodes[1]]]
-processed_triangles = {k: v for k, v in processed_triangles.items() if v != really_high_region}
+processed_triangles = {k: v for k, v in processed_triangles.items() if v != removable_segmentation}
 
 # don't show regions that null mapped
 #processed_triangles = {k: v for k, v in processed_triangles.items() if v != 0}
-
-del triangle_counter
-triangle_counter = Counter()
-for v in processed_triangles.itervalues():
-	triangle_counter.update(set([v]))
-
-print triangle_counter, 'triangle_counter'
 
 # save the segmented scalar field
 segmentation_file_arguments = [tree_type, SEGMENTATION_INFIX, file_name, VTK_EXTENSION]
@@ -793,4 +828,4 @@ triangle_file.close()
 
 print datetime.now() - startTime, 'Done! :)'
 
-#os._exit(0)
+os._exit(0)
