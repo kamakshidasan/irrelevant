@@ -1,6 +1,6 @@
 # irrelevant
 
-To be able to run code from this repository, install TTK using [these](https://topology-tool-kit.github.io/installation.html) guidlelines. This code has been tested with TTK 0.95 on Ubuntu 16.04/MacOS High Sierra. 
+To be able to run code from this repository, install TTK using [these](https://topology-tool-kit.github.io/installation.html) guidlelines. This code has been tested with TTK 0.96 on Ubuntu 16.04/MacOS High Sierra. 
 
 TTK provides the ability to visualize and analyse scalar fields.
 However, analysing time-varying data by repeating the same tasks over and over again, can be tedious with TTK.
