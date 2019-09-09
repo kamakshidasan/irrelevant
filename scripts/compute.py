@@ -4,7 +4,7 @@ from datetime import datetime
 from helper import *
 from sets import Set
 from collections import defaultdict
-from make_extremum_tree import *
+from make_tree import *
 from collections import Counter
 
 
@@ -611,7 +611,7 @@ coordinates_file.close()
 
 # *******************************************
 # find the mappings and get a string for APTED
-make_extremum_tree(file_name, file_path)
+make_tree(file_name, file_path)
 
 #*********************************************
 
