@@ -526,8 +526,7 @@ for current_critical in sorted_nodes:
                     for point_index in point_identifiers:
                         simplex_scalar = point_scalars[point_index]
                         isoband_value += calculate_cheap_isoband_index(simplex_scalar, lower_scalar_bound, upper_scalar_bound)
-
-					#if ((isoband_value in lower_intolerable_indices) or (isoband_value in upper_intolerable_indices)):
+			
                     # check if the triangle has an isoband passing through it
                     if ((isoband_value in cheap_intolerable_indices)):
 					    isoband = False
