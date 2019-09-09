@@ -21,13 +21,14 @@ file_list.insert(0, 'adhitya.vtk')
 file_list_again = os.listdir(data_path)
 comparison_file_list = sorted(file_list_again, key=sort_files)
 comparison_file_list.insert(0, 'aishwarya.vtk')
+
 # for the zeroth file, compare with itself
 comparison_file_list.insert(1, comparison_file_list[1])
 comparison_file_list = [os.path.splitext(x)[0] for x in comparison_file_list]
 
-#num_files = len(file_list)
-num_files = 127
+num_files = len(file_list)
 
+# iterate across the files
 for i in range(1, num_files+1):
 
 	compute_file = get_output_path(file_path, [COMPUTE_SCRIPT], folder_name = SCRIPTS_FOLDER)
