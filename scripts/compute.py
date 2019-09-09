@@ -45,6 +45,7 @@ renderView1.Update()
 magnitudeLUT = GetColorTransferFunction('magnitude')
 
 # create a new 'Extract Surface'
+# generates a VTP that is required for triangulation
 extractSurface1 = ExtractSurface(Input=inputFile)
 extractSurface1Display = Show(extractSurface1, renderView1)
 extractSurface1Display.Representation = 'Surface'
@@ -61,6 +62,7 @@ triangulate1Display.SetScalarBarVisibility(renderView1, False)
 renderView1.Update()
 
 # create a new 'Loop Subdivision'
+# you want a coarser mesh
 loopSubdivision1 = LoopSubdivision(Input=triangulate1)
 loopSubdivision1.NumberofSubdivisions = num_subdivisions
 loopSubdivision1Display = Show(loopSubdivision1, renderView1)
@@ -70,6 +72,7 @@ loopSubdivision1Display.SetScalarBarVisibility(renderView1, False)
 renderView1.Update()
 
 # create a new 'Clean to Grid'
+# because TTK is pure crap
 vtkFile = CleantoGrid(Input=loopSubdivision1)
 vtkFileDisplay = Show(vtkFile, renderView1)
 vtkFileDisplay.Representation = 'Surface'
@@ -404,55 +407,10 @@ for index in range(num_persistent_threshold_points):
 
 pairs_file.close()
 
-# Write the persistence diagram after thresholding of only the super/sub level-set [for usage by TDA]
-pairs_file_arguments = [tree_type, PAIRS_INFIX, file_name, CSV_EXTENSION]
-pairs_file_path = get_output_path(file_path, pairs_file_arguments, folder_name = PERSISTENCE_FOLDER)
-
-pairs_file = open(pairs_file_path, 'w')
-fieldnames = ['dimension', 'Death', 'Birth']
-writer = csv.writer(pairs_file, delimiter=',')
-writer.writerow(fieldnames)
-birth_vertex = None
-birth_scalar = None
-write_row = True
-
-# The persistent pairs are one after the other
-# First comes birth; immediately followed by death [Adhitya getting philosophical :P]
-
-# Iterate over all the points in the persistent diagram
-persistence_threshold_data = servermanager.Fetch(simplififedPersistenceDiagram)
-# Get the number of persistent points and arcs
-num_persistent_threshold_points = simplififedPersistenceDiagram.GetDataInformation().GetNumberOfPoints()
-
-# Iterate across all points in diagram and write persistent pairs
-for index in range(num_persistent_threshold_points):
-	vertex_id = persistence_threshold_data.GetPointData().GetArray('VertexIdentifier').GetValue(index)
-	try:
-		vertex_scalar = scalars[vertex_id]
-		if index & 1:
-			death_vertex = vertex_id
-			death_scalar = vertex_scalar
-			# There exist values which are not present in the merge-tree
-			if write_row:
-				content = [0, round(death_scalar,4), round(birth_scalar,4)]
-				writer.writerow(content)
-			write_row = True
-		else:
-			birth_vertex = vertex_id
-			birth_scalar = vertex_scalar
-			write_row = True
-	except:
-		# This row contains a value not present in the merge-tree
-		write_row = False
-		pass
-
-pairs_file.close()
-
 # take screenshot of scalar field
 screen_file_arguments = [tree_type, SCREENSHOT_INFIX, file_name, PNG_EXTENSION]
 screen_file_path = get_output_path(file_path, screen_file_arguments, folder_name = SCREENSHOT_FOLDER)
 SaveScreenshot(screen_file_path, magnification=1, quality=100, view=renderView1)
-
 
 # Start marching! :)
 

@@ -31,7 +31,7 @@ def print_statement():
 			#statement += 'python edit-distance-gaps.py tv_'+str(count) + ' tv_'+str(count-1) + '\n'
 			#statement += 'python print-gaps.py tv_'+str(count) + ' tv_'+str(count-1) + '\n'
 			#statement += 'python contour-distance.py tv_'+str(count) + ' tv_'+str(count-1) + '\n'
-			statement += 'java -jar apted-time.jar -f '
+			statement += 'java -jar apted-coefficients.jar -f '
 			statement += '../strings/tv_'+str(count) + '.txt ../strings/tv_0.txt' + '\n'
 			count+=1
 
